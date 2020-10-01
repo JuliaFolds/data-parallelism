@@ -32,6 +32,8 @@ nav li a {
 
 header {
     text-align: right;
+    padding-left: 30px;
+    padding-right: 30px;
     margin-top: 50px;
     margin-bottom: 50px;
     display: flex;
@@ -64,16 +66,9 @@ header li a:hover {
     }
 }
 
-@media (min-width: 481px) {
-    header {
-        padding-left: 12.5%;
-        padding-right: 12.5%; }
-    }
-
 /* wide display: enforce maximum width of header to match content */
 @media (min-width: 940px) {
     header {
-        width: 705px;
         margin-left: auto;
         margin-right: auto; }
     }
