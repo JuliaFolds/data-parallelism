@@ -181,12 +181,12 @@ html {
 ================================================================== */
 
 .franklin-content img {
-    width: 70%;
+    max-width: 70%;
     text-align: center;
     padding-left: 10%; }
 
 .franklin-content .img-small img {
-    width: 50%;
+    max-width: 50%;
     text-align: center;
     padding-left: 20%; }
 
@@ -253,3 +253,93 @@ code {
     margin-bottom: 5px;
     border-radius: 0 10px 10px 0;
     border-left: 5px solid #4C9CF1; }
+
+/* ==================================================================
+    ADMONITION
+================================================================== */
+
+/* Taken from:
+   https://github.com/tlienart/Franklin.jl/blob/v0.10.3/docs/_css/jtd.css#L674-L696
+ */
+
+.note, .warn {
+    margin-top: 1.5em;
+    width: 95%;
+    margin-left:auto;
+    margin-right:auto;
+    border-bottom-left-radius: 5px;
+    border-bottom-right-radius: 5px;
+    margin-bottom: 1em; }
+.note .content,
+.warn .content {
+    padding: 10px;
+    padding-left: 12px; }
+.note .title,
+.warn .title {
+    font-size: 105%;
+    border-top-left-radius: 5px;
+    border-top-right-radius: 5px;
+    padding-left: 7px;
+    padding-top: 2px; }
+
+.note {
+    background-color: aliceblue; }
+.note .title {
+    color: white;
+    background: cornflowerblue; }
+
+.warn {
+    background-color: #f7e2e2; }
+.warn .title {
+    color: white;
+    background: #af4545; }
+
+/* ==================================================================
+    TESTING
+================================================================== */
+
+.test_code > pre,
+.test_ok > pre,
+.test_failure > pre {
+    margin-top: 0px; }
+
+.test_code > pre {
+    margin-bottom: 5px; }
+
+.test_code > .title,
+.test_ok > .title,
+.test_failure > .title {
+    font-family: monospace;
+    font-size: 14px;
+    font-weight: bold; }
+
+.test_ok > .title {
+    color: green; }
+
+.test_failure > .title {
+    color: red; }
+
+.test_code .hljs {
+    background-color: lemonchiffon; }
+
+.test_ok .hljs {
+    background-color: palegreen; }
+
+.test_failure .hljs {
+    background-color: salmon; }
+
+/* ==================================================================
+    MISC
+================================================================== */
+
+kbd {
+    display: inline-block;
+    padding: 3px 5px;
+    font: 15px SFMono-Regular,Consolas,Liberation Mono,Menlo,monospace;
+    line-height: 16px;
+    color: #444d56;
+    vertical-align: middle;
+    background-color: #fafbfc;
+    border: 1px solid #d1d5da;
+    border-radius: 6px;
+    box-shadow: inset 0 -1px 0 #d1d5da; }

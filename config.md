@@ -26,3 +26,28 @@ For instance:
 -->
 \newcommand{\R}{\mathbb R}
 \newcommand{\scal}[1]{\langle #1 \rangle}
+
+\newcommand{\kbd}[1]{~~~<kbd>!#1</kbd>~~~}
+
+\newcommand{\note}[1]{@@note @@title 💡 Note@@ @@content #1 @@ @@}
+\newcommand{\warn}[1]{@@warn @@title ⚠ Warning@@ @@content #1 @@ @@}
+
+<!--
+Test case command. See ./utils.jl for implementation.
+
+Arguments:
+1. Test name.
+2. Test code. It must throw in a failure case.
+-->
+\newcommand{\test}[2]{
+```julia:/-test-/!#1
+#hideall
+
+!#2
+
+Base.Text("OK")
+```
+
+\testcode{!#2}
+\testcheck{!#1}
+}
