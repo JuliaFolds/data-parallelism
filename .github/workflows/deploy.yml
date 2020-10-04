@@ -14,6 +14,7 @@ on:
     branches:
       - master
       - dev
+  pull_request:
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
@@ -27,6 +28,15 @@ jobs:
       uses: webfactory/ssh-agent@v0.2.0
       with:
         ssh-private-key: ${{ secrets.FRANKLIN_PRIV }}
+
+    - name: Fix URLs for PR preview deployment (pull request previews)
+      if: github.event_name == 'pull_request'
+      run: |
+        echo "::set-env name=JULIA_FRANKLIN_WEBSITE_URL::https://juliafolds.github.io/data-parallelism/previews/PR${{ github.event.number }}/"
+        echo "::set-env name=JULIA_FRANKLIN_PREPATH::data-parallelism/previews/PR${{ github.event.number }}"
+    - run: echo $JULIA_FRANKLIN_WEBSITE_URL
+    - run: echo $JULIA_FRANKLIN_PREPATH
+
     # NOTE
     #   Python is necessary for pre-rendering steps as well as to install
     #   matplotlib which is necessary if you intend to use PyPlot. If you do
@@ -56,12 +66,34 @@ jobs:
             cd("src");
             using Franklin;
             optimize()'
-    - name: Build and Deploy
+
+    - name: Deploy (main)
+      if: github.event_name == 'push'
       uses: JamesIves/github-pages-deploy-action@releases/v3
       with:
         SSH: true
-        # NOTE
-        #   Set this to `BRANCH: gh-pages` for a **project** page and  to
-        #   `BRANCH: master` for a **personal** page
         BRANCH: gh-pages
         FOLDER: src/__site
+
+    - name: Deploy (preview)
+      if: github.event_name == 'pull_request'
+      uses: JamesIves/github-pages-deploy-action@releases/v3
+      with:
+        SSH: true
+        BRANCH: gh-pages
+        FOLDER: src/__site
+        TARGET_FOLDER: previews/PR${{ github.event.number }}
+
+    # https://github.com/niteoweb/pull_request_status_action
+    - name: Set PR status
+      if: github.event_name == 'pull_request'
+      uses: niteoweb/pull_request_status_action@v1.0.0
+      with:
+        pr_number: ${{ github.event.number }}
+        state: success
+        repository: ${{ github.repository }}
+        target_url: "https://juliafolds.github.io/data-parallelism/previews/PR${{ github.event.number }}/"
+        description: "preview is successfully deployed"
+        context: Franklin/deploy
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

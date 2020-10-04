@@ -5,9 +5,9 @@ The website_* must be defined for the RSS to work
 -->
 @def website_title = "A guide to data parallelism in Julia"
 @def website_descr = "A guide to data parallelism in Julia"
-@def website_url   = "https://juliafolds.github.io/data-parallelism"
+@def website_url   = get(ENV, "JULIA_FRANKLIN_WEBSITE_URL", "https://juliafolds.github.io/data-parallelism")
 
-@def prepath = "data-parallelism"
+@def prepath = get(ENV, "JULIA_FRANKLIN_PREPATH", "data-parallelism")
 
 @def author = "Takafumi Arakaki"
 
