@@ -28,15 +28,16 @@ is a great introduction.  His Google TechTalk
 is also very helpful for getting into data parallelism mind set.
 }
 
-This note primary focuses on the Julia packages that I (Takafumi
-Arakaki **`@tkf`**) have developed.  As a result, it currently focuses
-on thread-based parallelism.  There is a simple distributed computing
-support.  GPU support is a frequently requested feature but
+This introduction primary focuses on the Julia packages that I
+(Takafumi Arakaki **`@tkf`**) have developed.  As a result, it
+currently focuses on thread-based parallelism.  There is a simple
+distributed computing support.  GPU support is a frequently requested
+feature but
 [it hasn't been implemented yet](https://github.com/JuliaFolds/Transducers.jl/issues/236).
 See also
 [other parallel-computation libraries in Julia](../../explanation/libraries/).
 
-Also note that this note does not discuss how to use threading
+Also note that this introduction does not discuss how to use threading
 primitives such as
 [`Threads.@spawn`](https://docs.julialang.org/en/v1/base/multi-threading/)
 since it is too low-level and error-prone.  For data parallelism, a
@@ -61,7 +62,7 @@ in Julia REPL.
 If you prefer using exactly the same environment used for testing this
 tutorial, run the following commands
 
-```plaintext
+```bash
 git clone https://github.com/JuliaFolds/data-parallelism
 cd data-parallelism
 julia --project
@@ -214,7 +215,7 @@ savefig(plt, joinpath(@OUTPUT, "collatz_stopping_time_scatter.png")) # hide
 We can easily parallelize `map(collatz_stopping_time, 1:10_000)` and
 get a good speedup:
 
-```plaintext
+```julia-repl
 julia> Threads.nthreads()
 4
 
@@ -317,7 +318,7 @@ functions, type `ThreadsX.` and press \kbd{TAB} in the REPL.
 ### Practical example: Maximum stopping time of Collatz function
 
 We can use `maximum` to compute the maximum stopping time of Collatz
-function on the given the range of initial values
+function on a given the range of initial values
 
 ```julia:max_collatz_stopping_time
 max_time = ThreadsX.maximum(collatz_stopping_time, 1:100_000)
@@ -327,7 +328,9 @@ max_time = ThreadsX.maximum(collatz_stopping_time, 1:100_000)
 
 \test{max_collatz_stopping_time}{@test max_time == 350}
 
-```plaintext
+We get a speedup similar to the `map` example above:
+
+```julia-repl
 julia> @btime maximum(collatz_stopping_time, 1:100_000)
   17.625 ms (0 allocations: 0 bytes)
 350
@@ -408,7 +411,7 @@ a high performance.
 
 `@reduce() do` syntax is the most flexible way in FLoops.jl for
 expressing custom reductions.  It is very useful when more than two
-quantities interacts (e.g., index and value in the example below).
+quantities that interact (e.g., index and value in the example below).
 Note also that `@reduce` can be used multiple times in the loop body.
 Here is the way to compute `findmin` and `findmax` in parallel:
 
@@ -482,10 +485,10 @@ f1 = mapreduce(x -> Dict(x => 1), mergewith!(+), str)
 
 \show{mergewith1}
 
-Note this version has a problem: `Dict(x => 1)` allocates an object
-for each iteration.  This is bad in particular in threaded Julia code
-because it frequently invokes GC.  To avoid this situation, we can
-replace `Dict` with
+Note that this code has a performance problem: `Dict(x => 1)`
+allocates an object for each iteration.  This is bad in particular in
+threaded Julia code because it frequently invokes GC.  To avoid this
+situation, we can replace `Dict` with
 [`MicroCollections.SingletonDict`](https://github.com/JuliaFolds/MicroCollections.jl)
 that does not allocate the dictionary in the heap.  `SingletonDict`
 can be "upgraded" to a `Dict` by calling
