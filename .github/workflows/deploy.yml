@@ -66,6 +66,8 @@ jobs:
               cd("src");
               using Franklin;
               optimize()'
+        env:
+          GKSwstype: "nul"
 
       - name: Deploy (main)
         if: github.event_name == 'push'
