@@ -63,4 +63,4 @@ jobs:
         #   Set this to `BRANCH: gh-pages` for a **project** page and  to
         #   `BRANCH: master` for a **personal** page
         BRANCH: gh-pages
-        FOLDER: __site
+        FOLDER: src/__site
