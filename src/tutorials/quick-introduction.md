@@ -58,6 +58,23 @@ tutorial by running `using Pkg;
 Pkg.add(["Transducers", "ThreadsX", "OnlineStats", "FLoops", "MicroCollections", "BangBang", "Plots", "BenchmarkTools"])`
 in Julia REPL.
 
+If you prefer using exactly the same environment used for testing this
+tutorial, run the following commands
+
+```plaintext
+git clone https://github.com/JuliaFolds/data-parallelism
+cd data-parallelism
+julia --project
+```
+
+and then in the Julia REPL:
+
+```julia-repl
+julia> using Pkg
+
+julia> Pkg.instantiate()
+```
+
 ## Starting `julia`
 
 To use multi-threading in Julia, you need to start it with multiple
