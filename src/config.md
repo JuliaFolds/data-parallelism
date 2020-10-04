@@ -7,6 +7,8 @@ The website_* must be defined for the RSS to work
 @def website_descr = "A guide to data parallelism in Julia"
 @def website_url   = "https://juliafolds.github.io/data-parallelism"
 
+@def prepath = "data-parallelism"
+
 @def author = "Takafumi Arakaki"
 
 @def mintoclevel = 2
