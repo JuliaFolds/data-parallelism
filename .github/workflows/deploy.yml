@@ -19,81 +19,81 @@ jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
     steps:
-    - name: Checkout
-      uses: actions/checkout@v2
-      with:
-        persist-credentials: false
-    - name: Install SSH Client
-      continue-on-error: true
-      uses: webfactory/ssh-agent@v0.2.0
-      with:
-        ssh-private-key: ${{ secrets.FRANKLIN_PRIV }}
+      - name: Checkout
+        uses: actions/checkout@v2
+        with:
+          persist-credentials: false
+      - name: Install SSH Client
+        continue-on-error: true
+        uses: webfactory/ssh-agent@v0.2.0
+        with:
+          ssh-private-key: ${{ secrets.FRANKLIN_PRIV }}
 
-    - name: Fix URLs for PR preview deployment (pull request previews)
-      if: github.event_name == 'pull_request'
-      run: |
-        echo "::set-env name=JULIA_FRANKLIN_WEBSITE_URL::https://juliafolds.github.io/data-parallelism/previews/PR${{ github.event.number }}/"
-        echo "::set-env name=JULIA_FRANKLIN_PREPATH::data-parallelism/previews/PR${{ github.event.number }}"
-    - run: echo $JULIA_FRANKLIN_WEBSITE_URL
-    - run: echo $JULIA_FRANKLIN_PREPATH
+      - name: Fix URLs for PR preview deployment (pull request previews)
+        if: github.event_name == 'pull_request'
+        run: |
+          echo "::set-env name=JULIA_FRANKLIN_WEBSITE_URL::https://juliafolds.github.io/data-parallelism/previews/PR${{ github.event.number }}/"
+          echo "::set-env name=JULIA_FRANKLIN_PREPATH::data-parallelism/previews/PR${{ github.event.number }}"
+      - run: echo $JULIA_FRANKLIN_WEBSITE_URL
+      - run: echo $JULIA_FRANKLIN_PREPATH
 
-    # NOTE
-    #   Python is necessary for pre-rendering steps as well as to install
-    #   matplotlib which is necessary if you intend to use PyPlot. If you do
-    #   not, then you can remove the `run: pip install matplotlib` line.
-    - name: Install python
-      uses: actions/setup-python@v1
-      with:
-        python-version: '3.x'
-    - name: Install Julia
-      uses: julia-actions/setup-julia@v1
-      with:
-        version: 1.5
-    # NOTE
-    #   The steps below ensure that NodeJS and Franklin are loaded then it
-    #   installs highlight.js which is needed for the prerendering step.
-    #   Then the environment is activated and instantiated to install all
-    #   Julia packages which may be required to successfully build your site.
-    #
-    #   The last line should be `optimize()` though you may want to give it
-    #   specific arguments, see the documentation or ?optimize in the REPL.
-    - run: julia --project=. -e 'using Pkg; Pkg.instantiate();'
-    - run: julia --project=. -e '
-            cd("src");
-            using NodeJS;
-            run(`$(npm_cmd()) install highlight.js`);'
-    - run: julia --project=. -e '
-            cd("src");
-            using Franklin;
-            optimize()'
+      # NOTE
+      #   Python is necessary for pre-rendering steps as well as to install
+      #   matplotlib which is necessary if you intend to use PyPlot. If you do
+      #   not, then you can remove the `run: pip install matplotlib` line.
+      - name: Install python
+        uses: actions/setup-python@v1
+        with:
+          python-version: '3.x'
+      - name: Install Julia
+        uses: julia-actions/setup-julia@v1
+        with:
+          version: 1.5
+      # NOTE
+      #   The steps below ensure that NodeJS and Franklin are loaded then it
+      #   installs highlight.js which is needed for the prerendering step.
+      #   Then the environment is activated and instantiated to install all
+      #   Julia packages which may be required to successfully build your site.
+      #
+      #   The last line should be `optimize()` though you may want to give it
+      #   specific arguments, see the documentation or ?optimize in the REPL.
+      - run: julia --project=. -e 'using Pkg; Pkg.instantiate();'
+      - run: julia --project=. -e '
+              cd("src");
+              using NodeJS;
+              run(`$(npm_cmd()) install highlight.js`);'
+      - run: julia --project=. -e '
+              cd("src");
+              using Franklin;
+              optimize()'
 
-    - name: Deploy (main)
-      if: github.event_name == 'push'
-      uses: JamesIves/github-pages-deploy-action@releases/v3
-      with:
-        SSH: true
-        BRANCH: gh-pages
-        FOLDER: src/__site
+      - name: Deploy (main)
+        if: github.event_name == 'push'
+        uses: JamesIves/github-pages-deploy-action@releases/v3
+        with:
+          SSH: true
+          BRANCH: gh-pages
+          FOLDER: src/__site
 
-    - name: Deploy (preview)
-      if: github.event_name == 'pull_request'
-      uses: JamesIves/github-pages-deploy-action@releases/v3
-      with:
-        SSH: true
-        BRANCH: gh-pages
-        FOLDER: src/__site
-        TARGET_FOLDER: previews/PR${{ github.event.number }}
+      - name: Deploy (preview)
+        if: github.event_name == 'pull_request'
+        uses: JamesIves/github-pages-deploy-action@releases/v3
+        with:
+          SSH: true
+          BRANCH: gh-pages
+          FOLDER: src/__site
+          TARGET_FOLDER: previews/PR${{ github.event.number }}
 
-    # https://github.com/niteoweb/pull_request_status_action
-    - name: Set PR status
-      if: github.event_name == 'pull_request'
-      uses: niteoweb/pull_request_status_action@v1.0.0
-      with:
-        pr_number: ${{ github.event.number }}
-        state: success
-        repository: ${{ github.repository }}
-        target_url: "https://juliafolds.github.io/data-parallelism/previews/PR${{ github.event.number }}/"
-        description: "preview is successfully deployed"
-        context: Franklin/deploy
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # https://github.com/niteoweb/pull_request_status_action
+      - name: Set PR status
+        if: github.event_name == 'pull_request'
+        uses: niteoweb/pull_request_status_action@v1.0.0
+        with:
+          pr_number: ${{ github.event.number }}
+          state: success
+          repository: ${{ github.repository }}
+          target_url: "https://juliafolds.github.io/data-parallelism/previews/PR${{ github.event.number }}/"
+          description: "preview is successfully deployed"
+          context: Franklin/deploy
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
