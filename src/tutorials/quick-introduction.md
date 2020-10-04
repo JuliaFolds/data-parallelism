@@ -16,7 +16,7 @@ Practically, it means to use generalized form of map and reduce
 operations and learn how to express your computation in terms of them.
 Luckily, if you already know how to write
 [iterator comprehensions](https://docs.julialang.org/en/v1/manual/arrays/#Generator-Expressions),
-there is not much more to learn for accessing to a large class of data
+there is not much more to learn for accessing a large class of data
 parallel computations.
 
 \note{
@@ -30,7 +30,7 @@ is also very helpful for getting into data parallelism mind set.
 
 This introduction primary focuses on the Julia packages that I
 (Takafumi Arakaki **`@tkf`**) have developed.  As a result, it
-currently focuses on thread-based parallelism.  There is a simple
+currently focuses on thread-based parallelism.  There is simple
 distributed computing support.  GPU support is a frequently requested
 feature but
 [it hasn't been implemented yet](https://github.com/JuliaFolds/Transducers.jl/issues/236).
@@ -80,7 +80,7 @@ julia> Pkg.instantiate()
 
 To use multi-threading in Julia, you need to start it with multiple
 execution threads.  If you have Julia 1.5 or higher, you can start it
-with `-t auto` (or, equivalently, `--threads auto`) option:
+with the `-t auto` (or, equivalently, `--threads auto`) option:
 
 ```plaintext
 $ julia -t auto
@@ -98,13 +98,13 @@ julia> Threads.nthreads()  # number of core you have
 ```
 
 The command line option `-t`/`--threads` can also take the number of
-threads to be used.  In older Julia releases, use `JULIA_NUM_THREADS`
+threads to be used.  In older Julia releases, use the `JULIA_NUM_THREADS`
 environment variable.  For example, on Linux and macOS,
 `JULIA_NUM_THREADS=4 julia` starts `juila` with 4 execution threads.
 
 For more information, see
 [Starting Julia with multiple threads](https://docs.julialang.org/en/v1/manual/multi-threading/#Starting-Julia-with-multiple-threads)
-in Julia manual.
+in the Julia manual.
 
 ## Mapping
 
@@ -172,8 +172,8 @@ collatz(x) =
 
 reaches the number 1 for all positive integers.
 
-I skip introducing the mathematical background of it (as I don't know
-much about it) but let me mention that there are plenty fun-to-watch
+I'll skip the mathematical background of it (as I don't know
+much about it) but let me mention that there are plenty of fun-to-watch
 explanations in YouTube :)
 
 If the conjecture is correct, the number of iteration required for the
@@ -193,7 +193,7 @@ end
 \output{def_collatz_stopping_time}
 
 Just for fun, let's plot the stopping time of the initial values from
-1 to 10_000:
+1 to 10,000:
 
 ```julia:def_collatz_stopping_time
 using Plots
@@ -360,8 +360,8 @@ e1 = ThreadsX.reduce(Mean(), 1:10)
 While OnlineStats.jl often does not provide the fastest way to compute
 the given statistics when all the intermediate data can fit in memory,
 in many cases you don't really need the absolute best implementation.
-However, it may be worth considering to find other ways to compute
-given statistics when ThreadsX.jl + OnlineStats.jl becomes the
+However, it may be worth considering other ways to compute
+statistics if ThreadsX.jl + OnlineStats.jl becomes the
 bottleneck.
 }
 
@@ -404,7 +404,7 @@ Locks and atomics help you write correct
 [*concurrent*](https://blog.golang.org/waza-talk) programs when
 used appropriately.  However, they do so by *limiting* parallel
 execution.  Using data parallel pattern is the easiest way to get
-a high performance.
+high performance.
 }
 
 ### Parallel `findmin`/`findmax` with `@reduce() do`
@@ -487,14 +487,14 @@ f1 = mapreduce(x -> Dict(x => 1), mergewith!(+), str)
 
 Note that this code has a performance problem: `Dict(x => 1)`
 allocates an object for each iteration.  This is bad in particular in
-threaded Julia code because it frequently invokes GC.  To avoid this
+threaded Julia code because it frequently invokes garbage collection.  To avoid this
 situation, we can replace `Dict` with
 [`MicroCollections.SingletonDict`](https://github.com/JuliaFolds/MicroCollections.jl)
-that does not allocate the dictionary in the heap.  `SingletonDict`
+which does not allocate the dictionary in the heap.  `SingletonDict`
 can be "upgraded" to a `Dict` by calling
 [`BangBang.mergewith!!`](https://juliafolds.github.io/BangBang.jl/dev/#BangBang.mergewith!!).
-It will then create mutable object for each task to mutate.  We can
-then compose efficient parallel histogram operation:
+It will then create a mutable object for each task to mutate.  We can
+then compose an efficient parallel histogram operation:
 
 ```julia:mergewith2
 using BangBang: mergewith!!
@@ -513,7 +513,7 @@ f2 = ThreadsX.mapreduce(x -> SingletonDict(x => 1), mergewith!!(+), str)
 ### Practical example: Histogram of stopping time of Collatz function
 
 Let's compute the histogram of `collatz_stopping_time` over some range
-of initial value.  Unlike the histogram example above, we know that
+of initial values.  Unlike the histogram example above, we know that
 the stopping time is a positive integer.  So, it makes sense to use an
 array as the data structure that maps a bin (index) to a count.  There
 is no pre-defined reducing function like `mergewith!` we can use.
