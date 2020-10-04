@@ -31,6 +31,7 @@ function lx_testcheck(com, _)
         # Ref: Exit Codes With Special Meanings
         # https://tldp.org/LDP/abs/html/exitcodes.html
     end
+    CI && return ""
     if ok
         return """
         @@test_ok
