@@ -83,3 +83,16 @@ jobs:
         BRANCH: gh-pages
         FOLDER: src/__site
         TARGET_FOLDER: previews/PR${{ github.event.number }}
+
+    # https://github.com/niteoweb/pull_request_status_action
+    - name: Set PR status
+      if: github.event_name == 'pull_request'
+      uses: niteoweb/pull_request_status_action@v1.0.0
+      with:
+        pr_number: ${{ github.event.number }}
+        state: success
+        repository: ${{ github.repository }}
+        target_url: "https://juliafolds.github.io/data-parallelism/previews/PR${{ github.event.number }}/"
+        description: "preview is successfully deployed"
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
