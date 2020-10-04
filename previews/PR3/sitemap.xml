@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes" ?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+
+<url>
+    <loc>https://juliafolds.github.io/data-parallelism/previews/PR3/tutorials/quick-introduction/index.html</loc>
+    <lastmod>2020-10-04</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+</url>
+<url>
+    <loc>https://juliafolds.github.io/data-parallelism/previews/PR3/explanation/libraries/index.html</loc>
+    <lastmod>2020-10-04</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+</url>
+<url>
+    <loc>https://juliafolds.github.io/data-parallelism/previews/PR3/404/index.html</loc>
+    <lastmod>2020-10-04</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+</url>
+<url>
+    <loc>https://juliafolds.github.io/data-parallelism/previews/PR3/howto/index.html</loc>
+    <lastmod>2020-10-04</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+</url>
+<url>
+    <loc>https://juliafolds.github.io/data-parallelism/previews/PR3/explanation/index.html</loc>
+    <lastmod>2020-10-04</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+</url>
+<url>
+    <loc>https://juliafolds.github.io/data-parallelism/previews/PR3/reference/index.html</loc>
+    <lastmod>2020-10-04</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+</url>
+<url>
+    <loc>https://juliafolds.github.io/data-parallelism/previews/PR3/tutorials/index.html</loc>
+    <lastmod>2020-10-04</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+</url>
+<url>
+    <loc>https://juliafolds.github.io/data-parallelism/previews/PR3/index.html</loc>
+    <lastmod>2020-10-04</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+</url>
+</urlset>
