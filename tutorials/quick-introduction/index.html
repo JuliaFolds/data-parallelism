@@ -31,10 +31,7 @@ a3 = pmap(string, <span class=hljs-number >1</span>:<span class=hljs-number >9</
 <span class=hljs-meta >@assert</span> a1 == a3</code></pre>
 
 </p>
-<p> <div class=test_ok ><div class=title >☑ Pass</div>
-<pre><code class="plaintext hljs">Test Summary: | Pass  Total
-test set      |    2      2
-</code></pre></div>
+<p> 
 <h3 id=practical_example_stopping_time_of_collatz_function ><a href="#practical_example_stopping_time_of_collatz_function">Practical example: Stopping time of Collatz function</a></h3>
 <p>As a slightly more &quot;practical&quot; example, let&#39;s play with the <a href="https://en.wikipedia.org/wiki/Collatz_conjecture">Collatz conjecture</a> which states that recursive application the <em>Collatz function</em> defined as</p>
 <pre><code class="julia hljs">collatz(x) =
@@ -96,10 +93,7 @@ b1</code></pre>
 <span class=hljs-meta >@assert</span> b1 == b4</code></pre>
 
 </p>
-<p> <div class=test_ok ><div class=title >☑ Pass</div>
-<pre><code class="plaintext hljs">Test Summary: | Pass  Total
-test set      |    1      1
-</code></pre></div>
+<p> 
 <p>Note that more complex composition of mapping, filtering, and flattening can also be executed in parallel:</p>
 <pre><code class="julia hljs">c1 = ThreadsX.collect(y <span class=hljs-keyword >for</span> x <span class=hljs-keyword >in</span> <span class=hljs-number >1</span>:<span class=hljs-number >3</span> <span class=hljs-keyword >if</span> isodd(x) <span class=hljs-keyword >for</span> y <span class=hljs-keyword >in</span> <span class=hljs-number >1</span>:x)</code></pre>
 <pre><code class="plaintext hljs">4-element Array{Int64,1}:
@@ -113,7 +107,7 @@ c2 = dcollect(y <span class=hljs-keyword >for</span> x <span class=hljs-keyword 
 <span class=hljs-meta >@assert</span> c1 == c2</code></pre>
 
 </p>
-<p> <div class=test_ok ><div class=title >☑ Pass</div></div>
+<p> 
 <h2 id=pre-defined_reductions ><a href="#pre-defined_reductions">Pre-defined reductions</a></h2>
 <p>Functions such as <code>sum</code>, <code>prod</code>, <code>maximum</code>, and <code>all</code> are the examples of <em>reduction</em> &#40;aka <a href="https://en.wikipedia.org/wiki/Fold_&#40;higher-order_function&#41;"><em>fold</em></a>&#41; that can be parallelized.  They are very powerful tools when combined with iterator comprehensions.  Using ThreadsX.jl, a sum of a iterator created by the comprehension syntax</p>
 <pre><code class="julia hljs">d1 = sum(x + <span class=hljs-number >1</span> <span class=hljs-keyword >for</span> x <span class=hljs-keyword >in</span> <span class=hljs-number >1</span>:<span class=hljs-number >3</span>)</code></pre>
@@ -122,14 +116,14 @@ c2 = dcollect(y <span class=hljs-keyword >for</span> x <span class=hljs-keyword 
 <pre><code class="julia hljs">d2 = ThreadsX.sum(x + <span class=hljs-number >1</span> <span class=hljs-keyword >for</span> x <span class=hljs-keyword >in</span> <span class=hljs-number >1</span>:<span class=hljs-number >3</span>)</code></pre>
 <pre><code class="plaintext hljs">9</code></pre>
 </p>
-<p> <div class=test_ok ><div class=title >☑ Pass</div></div>
+<p> 
 <p>For the full list of pre-defined reductions and other parallelized functions, type <code>ThreadsX.</code> and press <kbd>TAB</kbd> in the REPL.</p>
 <h3 id=practical_example_maximum_stopping_time_of_collatz_function ><a href="#practical_example_maximum_stopping_time_of_collatz_function">Practical example: Maximum stopping time of Collatz function</a></h3>
 <p>We can use <code>maximum</code> to compute the maximum stopping time of Collatz function on the given the range of initial values</p>
 <pre><code class="julia hljs">max_time = ThreadsX.maximum(collatz_stopping_time, <span class=hljs-number >1</span>:<span class=hljs-number >100_000</span>)</code></pre>
 <pre><code class="plaintext hljs">350</code></pre>
 </p>
-<p> <div class=test_ok ><div class=title >☑ Pass</div></div>
+<p> 
 <pre><code class="plaintext hljs">julia&gt; @btime maximum(collatz_stopping_time, 1:100_000)
   17.625 ms (0 allocations: 0 bytes)
 350
@@ -143,7 +137,7 @@ julia&gt; @btime ThreadsX.maximum(collatz_stopping_time, 1:100_000)
 e1 = ThreadsX.reduce(Mean(), <span class=hljs-number >1</span>:<span class=hljs-number >10</span>)</code></pre>
 <pre><code class="plaintext hljs">Mean: n=10 | value=5.5</code></pre>
 </p>
-<p> <div class=test_ok ><div class=title >☑ Pass</div></div>
+<p> 
 <div class=note ><div class=title >💡 Note</div>
 <div class=content >While OnlineStats.jl often does not provide the fastest way to compute the given statistics when all the intermediate data can fit in memory, in many cases you don&#39;t really need the absolute best implementation. However, it may be worth considering to find other ways to compute given statistics when ThreadsX.jl &#43; OnlineStats.jl becomes the bottleneck.</div></div>
 <h2 id=manual_reductions ><a href="#manual_reductions">Manual reductions</a></h2>
@@ -157,7 +151,7 @@ e1 = ThreadsX.reduce(Mean(), <span class=hljs-number >1</span>:<span class=hljs-
 <span class=hljs-keyword >end</span>
 (s, t)</code></pre>
 <p><pre><code class="plaintext hljs">(15, -3)</code></pre> </p>
-<p> <div class=test_ok ><div class=title >☑ Pass</div></div></p>
+<p> </p>
 <div class=warn ><div class=title >⚠ Warning</div>
 <div class=content ><p><strong>Don&#39;t use locks or atomics&#33;</strong> <small>(unless you know what you are doing)</small></p>
 <p>In particular, do <em>not</em> write</p>
@@ -189,7 +183,7 @@ xmin = 0
 imax = 3
 xmax = 3
 </code></pre> </p>
-<p> <div class=test_ok ><div class=title >☑ Pass</div></div></p>
+<p> </p>
 <h3 id=parallel_findminfindmax_with_threadsxreduce_tedious ><a href="#parallel_findminfindmax_with_threadsxreduce_tedious">Parallel <code>findmin</code>/<code>findmax</code> with <code>ThreadsX.reduce</code> &#40;tedious&#33;&#41;</a></h3>
 <p>Note that it is not necessary to use <code>@floop</code> for writing a custom reduction.  For example, you can write an equivalent code with <code>ThreadsX.reduce</code>:</p>
 <pre><code class="julia hljs">(imin2, xmin2, imax2, xmax2) = ThreadsX.reduce(
@@ -209,7 +203,7 @@ xmax = 3
 
 <span class=hljs-meta >@assert</span> (imin2, xmin2, imax2, xmax2) == (imin, xmin, imax, xmax)</code></pre>
 <p> </p>
-<p> <div class=test_ok ><div class=title >☑ Pass</div></div></p>
+<p> </p>
 <p>However, as you can see, it is much more verbose and error-prone &#40;e.g., the initial values and the variables are declared in different place&#41;.</p>
 <h3 id=histogram_with_reduce ><a href="#histogram_with_reduce">Histogram with <code>reduce</code></a></h3>
 <p><code>mapreduce</code> and <code>reduce</code> are useful when combining pre-existing operations.  For example, we can easily implement histogram by combining <code>mapreduce</code>, <code>Dict</code>, and <a href="https://docs.julialang.org/en/v1/base/collections/#Base.mergewith&#33;"><code>mergewith&#33;</code></a>:</p>
@@ -234,7 +228,7 @@ f1 = mapreduce(x -&gt; <span class=hljs-built_in >Dict</span>(x =&gt; <span clas
 f2 = ThreadsX.mapreduce(x -&gt; SingletonDict(x =&gt; <span class=hljs-number >1</span>), mergewith!!(+), str)
 <span class=hljs-meta >@assert</span> f1 == f2</code></pre>
 <p> </p>
-<p> <div class=test_ok ><div class=title >☑ Pass</div></div></p>
+<p> </p>
 <p>&#40;For more information, see Transducers.jl&#39;s <a href="https://juliafolds.github.io/Transducers.jl/dev/tutorials/tutorial_parallel/#Example:-ad-hoc-histogram">ad-hoc histogram tutorial</a>.&#41;</p>
 <h3 id=practical_example_histogram_of_stopping_time_of_collatz_function ><a href="#practical_example_histogram_of_stopping_time_of_collatz_function">Practical example: Histogram of stopping time of Collatz function</a></h3>
 <p>Let&#39;s compute the histogram of <code>collatz_stopping_time</code> over some range of initial value.  Unlike the histogram example above, we know that the stopping time is a positive integer.  So, it makes sense to use an array as the data structure that maps a bin &#40;index&#41; to a count.  There is no pre-defined reducing function like <code>mergewith&#33;</code> we can use. Fortunately, it is easy to write it using <code>@reduce&#40;&#41; do</code> syntax in <code>@floop</code>:</p>
@@ -282,7 +276,7 @@ hist2 = collatz_histogram(<span class=hljs-number >1</span>:<span class=hljs-num
 <span class=hljs-meta >@assert</span> hist1 == hist2</code></pre>
 
 </p>
-<p> <div class=test_ok ><div class=title >☑ Pass</div></div>
+<p> 
 <p>For example, we can easily compare the performance of sequential and threaded execution:</p>
 <pre><code class="julia-repl hljs"><span class=hljs-meta >julia&gt;</span><span class=julia > <span class=hljs-meta >@btime</span> collatz_histogram(<span class=hljs-number >1</span>:<span class=hljs-number >1_000_000</span>, SequentialEx());
 </span>  411.377 ms (5889068 allocations: 89.88 MiB)
