@@ -1,0 +1,12 @@
+#!/bin/bash
+# -*- mode: julia -*-
+#=
+JULIA="${JULIA:-julia --color=yes --startup-file=no}"
+export JULIA_PROJECT="$(dirname "$(dirname "${BASH_SOURCE[0]}")")"
+export DISPLAY=
+export GKSwstype=nul
+exec ${JULIA} "${BASH_SOURCE[0]}" "$@"
+=#
+cd(joinpath(dirname(@__DIR__), "src"))
+using Franklin
+serve()
