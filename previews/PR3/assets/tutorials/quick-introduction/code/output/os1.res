@@ -1,0 +1,1 @@
+Mean: n=10 | value=5.5
