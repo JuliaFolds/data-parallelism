@@ -460,7 +460,7 @@ combining `mapreduce`, `Dict`, and
 
 ```julia:mergewith1
 str = "dbkgbjkahbidcbcfhfdeedhkggdigfecefjiakccjhghjcgefd"
-d1 = mapreduce(x -> Dict(x => 1), mergewith!(+), str)
+f1 = mapreduce(x -> Dict(x => 1), mergewith!(+), str)
 ```
 
 \show{mergewith1}
@@ -480,12 +480,12 @@ then compose efficient parallel histogram operation:
 using BangBang: mergewith!!
 using MicroCollections: SingletonDict
 
-d2 = ThreadsX.mapreduce(x -> SingletonDict(x => 1), mergewith!!(+), str)
-@assert d1 == d2
+f2 = ThreadsX.mapreduce(x -> SingletonDict(x => 1), mergewith!!(+), str)
+@assert f1 == f2
 ```
 
 \show{mergewith2}
-\test{mergewith}{@test d1 == d2}
+\test{mergewith}{@test f1 == f2}
 
 (For more information, see Transducers.jl's
 [ad-hoc histogram tutorial](https://juliafolds.github.io/Transducers.jl/dev/tutorials/tutorial_parallel/#Example:-ad-hoc-histogram).)
