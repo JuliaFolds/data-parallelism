@@ -1,5 +1,3 @@
-@def tags = ["syntax", "code"]
-
 # A quick introduction to data parallelism in Julia
 
 If you have a large collection of data and have to do similar
@@ -7,23 +5,24 @@ computations on each element,
 [data parallelism](https://en.wikipedia.org/wiki/Data_parallelism) is
 an easy way to speedup computation using multiple CPUs and machines as
 well as GPU(s).  While this is not the only kind of parallelism, it
-covers a vast class of compute-intensive computation.  A major hurdle
-for using data parallelism is that you need to unlearn some habits in
-sequential computation (i.e., patterns result in mutations of data
-structure).  In particular, it is important to use libraries that
-helps you describe *what* to compute than *how* to compute.
-Practically, it means to use generalized form of map and reduce
-operations and learn how to express your computation in terms of them.
-Luckily, if you already know how to write
+covers a vast class of compute-intensive programs.  A major hurdle for
+using data parallelism is that you need to unlearn some habits useful
+in sequential computation (i.e., patterns result in mutations of data
+structure).  In particular, it is important to use libraries that help
+you describe *what* to compute than *how* to compute.  Practically, it
+means to use generalized form of map and reduce operations and learn
+how to express your computation in terms of them.  Luckily, if you
+already know how to write
 [iterator comprehensions](https://docs.julialang.org/en/v1/manual/arrays/#Generator-Expressions),
 there is not much more to learn for accessing a large class of data
 parallel computations.
 
 \note{
-If you want to get a high-level _idea_ of data parallel computing (with
-a lot of fun tangential remarks), Guy L. Steele Jr.'s InfoQ talk
+If you want to get a high-level _idea_ of data parallel computing, Guy
+L. Steele Jr.'s InfoQ talk
 [How to Think about Parallel Programming: Not!](https://www.infoq.com/presentations/Thinking-Parallel-Programming/)
-is a great introduction.  His Google TechTalk
+is a great introduction (with a lot of fun tangential remarks).  His
+Google TechTalk
 [Four Solutions to a Trivial Problem](https://www.youtube.com/watch?v=ftcIcn8AmSY)
 is also very helpful for getting into data parallelism mind set.
 }
@@ -106,6 +105,25 @@ For more information, see
 [Starting Julia with multiple threads](https://docs.julialang.org/en/v1/manual/multi-threading/#Starting-Julia-with-multiple-threads)
 in the Julia manual.
 
+### Starting `julia` with multiple worker processes
+
+A few examples below mention
+[Distributed.jl](https://docs.julialang.org/en/v1/stdlib/Distributed/)-based
+parallelism.  Like how multi-threading is setup, you need to setup
+multiple worker processes to get speedup.  You can start `julia` with
+`-p auto` (or, equivalently, `--procs auto`).  Distributed.jl also
+lets you add worker processes after starting Julia with
+[`addprocs`](https://docs.julialang.org/en/v1/stdlib/Distributed/#Distributed.addprocs):
+
+```julia
+using Distributed
+addprocs(8)
+```
+
+For more information, see
+[Starting and managing worker processes](https://docs.julialang.org/en/v1/manual/distributed-computing/#Starting-and-managing-worker-processes)
+section in the Julia manual.
+
 ## Mapping
 
 Mapping is probably the most frequently used function in data
@@ -120,7 +138,7 @@ a1 = map(string, 1:9, 'a':'i')
 We can simply replace it with
 [`ThreadsX.map`](https://github.com/tkf/ThreadsX.jl) for thread-based
 parallelism (see also
-[other libraries](../../explanation/libraries/).):
+[other libraries](../../explanation/libraries/)):
 
 ```julia:map2
 using ThreadsX
@@ -370,10 +388,9 @@ bottleneck.
 For non-trivial parallel computations, you need to write a custom
 reduction.  [FLoops.jl](https://github.com/JuliaFolds/FLoops.jl)
 provides a concise set of syntax for writing custom reductions.  For
-example, this is an example for computing sums of two quantities in
-one sweep:
+example, this is how to compute sums of two quantities in one sweep:
 
-```julia:floop1
+```julia:floop100
 using FLoops
 
 @floop for (x, y) in zip(1:3, 1:2:6)
@@ -384,8 +401,78 @@ end
 (s, t)
 ```
 
-\show{floop1}
-\test{floop1}{@test (s, t) == (15, -3)}
+\show{floop100}
+\test{floop100}{@test (s, t) == (15, -3)}
+
+In this example, we do not initialize `s` and `t`; but it is not a
+typo.  In parallel sum, the only reasonable value of the initial state
+of the accumulators like `s` and `t` is zero.  So, `@reduce(s += a, t
++= b)` works as if `s` and `t` are initialized to appropriate type of
+zero.  However, since there are many zeros in Julia (`0::Int`,
+`0.0::Float64`, `(0x00 + 0x00im)::Complex{UInt8}`, ...), `s` and `t`
+are undefined if the input collection (i.e., the value of `xs` in `for
+x in xs`) is empty.
+
+To control the type of the accumulators and also to avoid
+`UndefVarError` in the empty case, you can set the initial value
+with `accumulator = initial_value op input` syntax
+
+```julia:floop200
+@floop for (x, y) in zip(1:3, 1:2:6)
+    a = x + y
+    b = x - y
+    @reduce(s2 = 0.0 + a, t2 = 0im + b)
+end
+(s2, t2)
+```
+
+\show{floop200}
+\test{floop200}{@test (s2, t2) === (15.0, -3 + 0im)}
+
+To understand the computation of `@floop` with `@reduce(accumulator =
+initial_value op input)` syntax, you can get a rough idea by just
+ignoring `@reduce(` and corresponding `,`s and `)`.  More concretely:
+
+1. Extract expressions `accumulator = initial_value` ("initializers")
+   from `accumulator = initial_value op input` and put them in front
+   of the `for` loop.
+2. Convert `accumulator = initial_value op input` to inplace update
+   `accumulator = accumulator op input`.
+3. Strip off `@reduce`.
+
+So, the above example of `@floop` is equivalent to
+
+```julia:floop250
+(s3, t3) =  # hide
+let
+    s2 = 0.0  # initializer
+    t2 = 0im  # initializer
+    for (x, y) in zip(1:3, 1:2:6)
+        a = x + y
+        b = x - y
+        s2 = s2 + a  # converted from `s2 = 0.0 + a` in `@reduce`
+        t2 = t2 + b  # converted from `t2 = 0im + b` in `@reduce`
+    end      # \
+    (s2, t2) #  `- the first arguments are now same as the left hand sides
+end
+```
+
+\show{floop250}
+\test{floop250}{@test (s3, t3) === (s2, t2)}
+
+The short-hand version `@reduce(s += a, t += b)` is implemented by
+using the first element of the input collection as the initial value.
+
+This transformation is used for generating the base case that is
+executed in a single `Task`.  Multiple results from tasks are combined
+by the operators and functions specified by `@reduce`.  More
+explicitly, `(s2_right, t2_right)` is combined into `(s2_left,
+t2_left)` by
+
+```julia
+s2_left = s2_left + s2_right
+t2_left = t2_left + t2_right
+```
 
 \warn{
 **Don't use locks or atomics!**
@@ -410,12 +497,13 @@ high performance.
 ### Parallel `findmin`/`findmax` with `@reduce() do`
 
 `@reduce() do` syntax is the most flexible way in FLoops.jl for
-expressing custom reductions.  It is very useful when more than two
-quantities that interact (e.g., index and value in the example below).
-Note also that `@reduce` can be used multiple times in the loop body.
-Here is the way to compute `findmin` and `findmax` in parallel:
+expressing custom reductions.  It is very useful when one variable can
+influence other variable(s) in reduction (e.g., index and value in the
+example below).  Note also that `@reduce` can be used multiple times
+in the loop body.  Here is a way to compute `findmin` and `findmax`
+in parallel:
 
-```julia:floop2
+```julia:floop300
 @floop for (i, x) in pairs([0, 1, 3, 2])
     @reduce() do (imin = -1; i), (xmin = Inf; x)
         if xmin > x
@@ -434,8 +522,69 @@ end
 @show imin xmin imax xmax
 ```
 
-\show{floop2}
-\test{floop2}{@test (imin, xmin, imax, xmax) == (1, 0, 3, 3)}
+\show{floop300}
+\test{floop300}{@test (imin, xmin, imax, xmax) == (1, 0, 3, 3)}
+
+We can understand the computation of `@floop` roughly by ignoring the
+lines with `@reduce() do` and corresponding `end`.  More concretely:
+
+1. Extract expressions `accumulator = initial_value` ("initializers")
+   from `(accumulator = initial_value; input)` or `(accumulator; input)`
+   and put them in front
+   of the `for` loop.
+2. Remove `@reduce() do ...` and corresponding `end`.
+
+```julia:floop400
+(imin2, xmin2, imax2, xmax2) =   # hide
+let
+    imin2 = -1    # -+
+    xmin2 = Inf   #  | initializers
+    imax2 = -1    #  |
+    xmax2 = -Inf  # -+
+
+    for (i, x) in pairs([0, 1, 3, 2])
+        if xmin2 > x   # -+
+            xmin2 = x  #  | do block bodies
+            imin2 = i  #  |
+        end            #  |
+        if xmax2 < x   #  |
+            xmax2 = x  #  |
+            imax2 = i  #  |
+        end            # -+
+    end
+
+    @show imin2 xmin2 imax2 xmax2
+    (imin2, xmin2, imax2, xmax2) # hide
+end
+nothing  # hide
+```
+
+\show{floop400}
+\test{floop400}{@test (imin2, xmin2, imax2, xmax2) == (1, 0, 3, 3)}
+
+The above computation is used for each partition of the input
+collection and combined by the reducing function defined by `@reduce()
+do` block.  That is to say, `(imin2_right, xmin2_right, imax2_right,
+xmax2_right)` is combined into `(imin2_left, xmin2_left, imax2_left,
+xmax2_left)` by
+
+```julia
+if xmin_left > xmin_right
+    xmin_left = xmin_right
+    imin_left = imin_right
+end
+if xmax_left < xmax_right
+    xmax_left = xmax_right
+    imax_left = imax_right
+end
+```
+
+**Remark**: Observe that `x` and `i` of the first `@reduce() do` block
+are replaced with `xmin_right` and `imin_right` while `x` and `i` of
+the second `@reduce() do` block are replaced with `xmax_right` and
+`imax_right`.  This is why we used two `@reduce() do` blocks; we need
+to "pair" `x`/`i` with `xmin`/`imin` or with `xmax`/`imax` depending
+on which `if` block we are in.
 
 ### Parallel `findmin`/`findmax` with `ThreadsX.reduce` (tedious!)
 
@@ -443,8 +592,8 @@ Note that it is not necessary to use `@floop` for writing a custom
 reduction.  For example, you can write an equivalent code with
 `ThreadsX.reduce`:
 
-```julia:floop2
-(imin2, xmin2, imax2, xmax2) = ThreadsX.reduce(
+```julia:floop500
+(imin3, xmin3, imax3, xmax3) = ThreadsX.reduce(
     ((i, x, i, x) for (i, x) in pairs([0, 1, 3, 2]));
     init = (-1, Inf, -1, -Inf)
 ) do (imin, xmin, imax, xmax), (i1, x1, i2, x2)
@@ -459,12 +608,12 @@ reduction.  For example, you can write an equivalent code with
     return (imin, xmin, imax, xmax)
 end
 
-@assert (imin2, xmin2, imax2, xmax2) == (imin, xmin, imax, xmax)
+@assert (imin3, xmin3, imax3, xmax3) == (imin, xmin, imax, xmax)
 ```
 
-\show{floop2}
-\test{floop2}{
-    @test (imin2, xmin2, imax2, xmax2) == (imin, xmin, imax, xmax)
+\show{floop500}
+\test{floop500}{
+    @test (imin3, xmin3, imax3, xmax3) == (imin, xmin, imax, xmax)
 }
 
 However, as you can see, it is much more verbose and error-prone
@@ -548,8 +697,30 @@ function collatz_histogram(xs, executor = ThreadedEx())
     end
     return hist
 end
+```
 
-# Example usage:
+\output{hist_collatz_stopping_time}
+
+As we discussed above, `@reduce() do` blocks are used in two contexts;
+for the sequential base case and for combining the accumulated results
+from two base cases.  Thus, for combining `hist_left` and
+`hist_right`, we need to substitute `hist_right` to `obs`.  This is
+why we need to handle the cases where `obs` is a `SingletonDict` and a
+`Vector`.  Thanks to multiple dispatch, it is very easy to absorb the
+difference in the two containers.  We can just use what `Base` defines
+for `pairs` and only need to define `maxkey` for absorbing the
+remaining difference.
+
+\note{
+When writing `@reduce() do (L₁ = I₁; R₁), (L₂ = I₂; R₂), ..., (Lₙ =
+Iₙ; Rₙ)`, make sure that the `do` block body can handle arbitrary
+possible value of `Lᵢ` substituted to `Rᵢ` and not just `Rᵢ`s that are
+calculated directly in the `for` loop body.
+}
+
+Example usage:
+
+```julia:plot_hist_collatz_stopping_time
 using Plots
 plt = plot(
     collatz_histogram(1:1_000_000),
@@ -558,24 +729,25 @@ plt = plot(
     label = "",
     size = (450, 300),
 )
-savefig(plt, joinpath(@OUTPUT, "hist_collatz_stopping_time.png")) # hide
+savefig(plt, joinpath(@OUTPUT, "plot_hist_collatz_stopping_time.png")) # hide
 ```
 
-\fig{hist_collatz_stopping_time}
+\fig{plot_hist_collatz_stopping_time}
 
 We use `@floop executor for ...` syntax so that it is easy to switch
-between different kind of execution mechanisms; e.g., sequential and
-threaded execution:
+between different kind of execution mechanisms; i.e., sequential,
+threaded, and distributed execution:
 
 ```julia:hist_collatz_stopping_time_with_executors
 hist1 = collatz_histogram(1:1_000_000, SequentialEx())
 hist2 = collatz_histogram(1:1_000_000, ThreadedEx())
-@assert hist1 == hist2
+hist3 = collatz_histogram(1:1_000_000, DistributedEx())
+@assert hist1 == hist2 == hist3
 ```
 
 \show{hist_collatz_stopping_time_with_executors}
 
-\test{hist_collatz_stopping_time_with_executors}{@test hist1 == hist2}
+\test{hist_collatz_stopping_time_with_executors}{@test hist1 == hist2 == hist3}
 
 For example, we can easily compare the performance of sequential and
 threaded execution:
@@ -587,3 +759,47 @@ julia> @btime collatz_histogram(1:1_000_000, SequentialEx());
 julia> @btime collatz_histogram(1:1_000_000, ThreadedEx());
   123.489 ms (5694903 allocations: 86.96 MiB)
 ```
+
+### Quick notes on `@threads` and `@distributed`
+
+Julia itself has
+[`Threads.@threads`](https://docs.julialang.org/en/v1/base/multi-threading/#Base.Threads.@threads)
+macro for threaded `for` loop and
+[`@distributed`](https://docs.julialang.org/en/v1/stdlib/Distributed/#Distributed.@distributed)
+macro for distributed `for` loop.  They are adequate for simple use
+cases but come with some limitations.  For example, `@threads` does
+not have built-in reducing function support.  Although `@distributed`
+macro has reducing function support, it is limited to pre-defined
+functions and it is tedious to handle multiple variables.  Both of
+these macros only have simple static scheduler and lacks an option
+like `basesize` supported by FLoops.jl and ThreadsX.jl to tune load
+balancing.  Furthermore, the code written with `@threads` cannot be
+reused for `@distributed` and vice versa.
+
+## Next steps
+
+Hopefully, this tutorial covers a bare minimum for you to start
+writing data-parallel programs and the documentations of
+[FLoops.jl](https://github.com/JuliaFolds/FLoops.jl) and
+[ThreadsX.jl](https://github.com/tkf/ThreadsX.jl) are now a bit more
+accessible.  These two libraries are based on the protocol designed
+for [Transducers.jl](https://github.com/JuliaFolds/Transducers.jl)
+which also contains various tools for data parallelism.
+
+Transducers.jl's
+[parallel processing tutorial](https://juliafolds.github.io/Transducers.jl/dev/tutorials/tutorial_parallel/)
+covers a similar topic with explanations for more low-level details.
+[Parallel word count](https://juliafolds.github.io/Transducers.jl/dev/tutorials/words/)
+tutorial based on Guy L. Steele Jr.'s
+[2009 ICFP talk](https://vimeo.com/6624203) is more advanced but I
+find it very a good example to follow for understanding what is
+possible with a clever design of the reducing function.
+
+Note that ideas presented in this tutorial are very general and should
+be applicable also when using
+[other libraries](../../explanation/libraries/).  For example, the
+idea of custom reduction is useful in GPU computing when using
+`mapreduce` on
+[`CuArray`](https://juliagpu.gitlab.io/CUDA.jl/usage/array/).
+
+\note{Work in progress. TODO: Add more tutorials and how-to guides.}
