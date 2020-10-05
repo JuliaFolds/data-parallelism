@@ -310,7 +310,7 @@ d2 = ThreadsX.sum(x + 1 for x in 1:3)
 
 \show{reduction3}
 
-\test{reduction}{@test d1 == d2}
+\test{reduction}{@test d1 != d2}
 
 For the full list of pre-defined reductions and other parallelized
 functions, type `ThreadsX.` and press \kbd{TAB} in the REPL.
@@ -326,7 +326,7 @@ max_time = ThreadsX.maximum(collatz_stopping_time, 1:100_000)
 
 \show{max_collatz_stopping_time}
 
-\test{max_collatz_stopping_time}{@test max_time == 350}
+\test{max_collatz_stopping_time}{@test max_time == 351}
 
 We get a speedup similar to the `map` example above:
 
