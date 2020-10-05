@@ -1,18 +1,16 @@
-const CI = lowercase(get(ENV, "CI", "false")) == "true"
+const TEST_RESULT_PATH = joinpath(@__DIR__, ".test-result")
+write(TEST_RESULT_PATH, "")
 
 function lx_testcode(com, _)
     code = Franklin.content(com.braces[1])
-    if !CI
-        return """
-        @@test_code
-        @@title 🔬 Test Code@@
-        ```julia
-        $code
-        ```
-        @@
-        """
-    end
-    return ""
+    return """
+    @@test_code
+    @@title 🔬 Test Code@@
+    ```julia
+    $code
+    ```
+    @@
+    """
 end
 
 function lx_testcheck(com, _)
@@ -27,11 +25,8 @@ function lx_testcheck(com, _)
             result = Text(result),
             output = Text(read(outpath, String))
         )
-        CI && exit(99)
-        # Ref: Exit Codes With Special Meanings
-        # https://tldp.org/LDP/abs/html/exitcodes.html
+        write(TEST_RESULT_PATH, "failed")
     end
-    CI && return ""
     if ok
         return """
         @@test_ok

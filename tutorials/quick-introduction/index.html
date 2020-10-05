@@ -34,8 +34,15 @@ a2 = ThreadsX.map(string, <span class=hljs-number >1</span>:<span class=hljs-num
 a3 = pmap(string, <span class=hljs-number >1</span>:<span class=hljs-number >9</span>, <span class=hljs-string >&#x27;a&#x27;</span>:<span class=hljs-string >&#x27;i&#x27;</span>)
 <span class=hljs-meta >@assert</span> a1 == a3</code></pre>
 
-</p>
-<p> 
+<div class=test ><div class=test_code ><div class=title >🔬 Test Code</div>
+<pre><code class="julia hljs"><span class=hljs-keyword >using</span> Test
+    <span class=hljs-meta >@testset</span> <span class=hljs-keyword >begin</span>
+        <span class=hljs-meta >@test</span> a1 == a2
+        <span class=hljs-meta >@test</span> a1 == a3
+    <span class=hljs-keyword >end</span></code></pre></div> <div class=test_ok ><div class=title >☑ Pass</div>
+<pre><code class="plaintext hljs">Test Summary: | Pass  Total
+test set      |    2      2
+</code></pre></div></div>
 <h3 id=practical_example_stopping_time_of_collatz_function ><a href="#practical_example_stopping_time_of_collatz_function">Practical example: Stopping time of Collatz function</a></h3>
 <p>As a slightly more &quot;practical&quot; example, let&#39;s play with the <a href="https://en.wikipedia.org/wiki/Collatz_conjecture">Collatz conjecture</a> which states that recursive application the <em>Collatz function</em> defined as</p>
 <pre><code class="julia hljs">collatz(x) =
@@ -96,8 +103,14 @@ b1</code></pre>
 <pre><code class="julia hljs">b4 = ThreadsX.collect(x + <span class=hljs-number >1</span> <span class=hljs-keyword >for</span> x <span class=hljs-keyword >in</span> <span class=hljs-number >1</span>:<span class=hljs-number >3</span>)
 <span class=hljs-meta >@assert</span> b1 == b4</code></pre>
 
-</p>
-<p> 
+<div class=test ><div class=test_code ><div class=title >🔬 Test Code</div>
+<pre><code class="julia hljs"><span class=hljs-keyword >using</span> Test
+    <span class=hljs-meta >@testset</span> <span class=hljs-keyword >begin</span>
+        <span class=hljs-meta >@test</span> b1 == b2 == b3
+    <span class=hljs-keyword >end</span></code></pre></div> <div class=test_ok ><div class=title >☑ Pass</div>
+<pre><code class="plaintext hljs">Test Summary: | Pass  Total
+test set      |    1      1
+</code></pre></div></div>
 <p>Note that more complex composition of mapping, filtering, and flattening can also be executed in parallel:</p>
 <pre><code class="julia hljs">c1 = ThreadsX.collect(y <span class=hljs-keyword >for</span> x <span class=hljs-keyword >in</span> <span class=hljs-number >1</span>:<span class=hljs-number >3</span> <span class=hljs-keyword >if</span> isodd(x) <span class=hljs-keyword >for</span> y <span class=hljs-keyword >in</span> <span class=hljs-number >1</span>:x)</code></pre>
 <pre><code class="plaintext hljs">4-element Array{Int64,1}:
@@ -110,8 +123,8 @@ b1</code></pre>
 c2 = dcollect(y <span class=hljs-keyword >for</span> x <span class=hljs-keyword >in</span> <span class=hljs-number >1</span>:<span class=hljs-number >3</span> <span class=hljs-keyword >if</span> isodd(x) <span class=hljs-keyword >for</span> y <span class=hljs-keyword >in</span> <span class=hljs-number >1</span>:x)
 <span class=hljs-meta >@assert</span> c1 == c2</code></pre>
 
-</p>
-<p> 
+<div class=test ><div class=test_code ><div class=title >🔬 Test Code</div>
+<pre><code class="julia hljs"><span class=hljs-meta >@test</span> c1 == c2 == [<span class=hljs-number >1</span>, <span class=hljs-number >1</span>, <span class=hljs-number >2</span>, <span class=hljs-number >3</span>]</code></pre></div> <div class=test_ok ><div class=title >☑ Pass</div></div></div>
 <h2 id=pre-defined_reductions ><a href="#pre-defined_reductions">Pre-defined reductions</a></h2>
 <p>Functions such as <code>sum</code>, <code>prod</code>, <code>maximum</code>, and <code>all</code> are the examples of <em>reduction</em> &#40;aka <a href="https://en.wikipedia.org/wiki/Fold_&#40;higher-order_function&#41;"><em>fold</em></a>&#41; that can be parallelized.  They are very powerful tools when combined with iterator comprehensions.  Using ThreadsX.jl, a sum of a iterator created by the comprehension syntax</p>
 <pre><code class="julia hljs">d1 = sum(x + <span class=hljs-number >1</span> <span class=hljs-keyword >for</span> x <span class=hljs-keyword >in</span> <span class=hljs-number >1</span>:<span class=hljs-number >3</span>)</code></pre>
@@ -119,15 +132,15 @@ c2 = dcollect(y <span class=hljs-keyword >for</span> x <span class=hljs-keyword 
 <p>can easily be parallelized by</p>
 <pre><code class="julia hljs">d2 = ThreadsX.sum(x + <span class=hljs-number >1</span> <span class=hljs-keyword >for</span> x <span class=hljs-keyword >in</span> <span class=hljs-number >1</span>:<span class=hljs-number >3</span>)</code></pre>
 <pre><code class="plaintext hljs">9</code></pre>
-</p>
-<p> 
+<div class=test ><div class=test_code ><div class=title >🔬 Test Code</div>
+<pre><code class="julia hljs"><span class=hljs-meta >@test</span> d1 == d2</code></pre></div> <div class=test_ok ><div class=title >☑ Pass</div></div></div>
 <p>For the full list of pre-defined reductions and other parallelized functions, type <code>ThreadsX.</code> and press <kbd>TAB</kbd> in the REPL.</p>
 <h3 id=practical_example_maximum_stopping_time_of_collatz_function ><a href="#practical_example_maximum_stopping_time_of_collatz_function">Practical example: Maximum stopping time of Collatz function</a></h3>
 <p>We can use <code>maximum</code> to compute the maximum stopping time of Collatz function on a given the range of initial values</p>
 <pre><code class="julia hljs">max_time = ThreadsX.maximum(collatz_stopping_time, <span class=hljs-number >1</span>:<span class=hljs-number >100_000</span>)</code></pre>
 <pre><code class="plaintext hljs">350</code></pre>
-</p>
-<p> 
+<div class=test ><div class=test_code ><div class=title >🔬 Test Code</div>
+<pre><code class="julia hljs"><span class=hljs-meta >@test</span> max_time == <span class=hljs-number >350</span></code></pre></div> <div class=test_ok ><div class=title >☑ Pass</div></div></div>
 <p>We get a speedup similar to the <code>map</code> example above:</p>
 <pre><code class="julia-repl hljs"><span class=hljs-meta >julia&gt;</span><span class=julia > <span class=hljs-meta >@btime</span> maximum(collatz_stopping_time, <span class=hljs-number >1</span>:<span class=hljs-number >100_000</span>)
 </span>  17.625 ms (0 allocations: 0 bytes)
@@ -141,8 +154,8 @@ c2 = dcollect(y <span class=hljs-keyword >for</span> x <span class=hljs-keyword 
 <pre><code class="julia hljs"><span class=hljs-keyword >using</span> OnlineStats: Mean
 e1 = ThreadsX.reduce(Mean(), <span class=hljs-number >1</span>:<span class=hljs-number >10</span>)</code></pre>
 <pre><code class="plaintext hljs">Mean: n=10 | value=5.5</code></pre>
-</p>
-<p> 
+<div class=test ><div class=test_code ><div class=title >🔬 Test Code</div>
+<pre><code class="julia hljs"><span class=hljs-keyword >using</span> OnlineStats; <span class=hljs-meta >@test</span> e1 == fit!(Mean(), <span class=hljs-number >1</span>:<span class=hljs-number >10</span>)</code></pre></div> <div class=test_ok ><div class=title >☑ Pass</div></div></div>
 <div class=note ><div class=title >💡 Note</div>
 <div class=content >While OnlineStats.jl often does not provide the fastest way to compute the given statistics when all the intermediate data can fit in memory, in many cases you don&#39;t really need the absolute best implementation. However, it may be worth considering other ways to compute statistics if ThreadsX.jl &#43; OnlineStats.jl becomes the bottleneck.</div></div>
 <h2 id=manual_reductions ><a href="#manual_reductions">Manual reductions</a></h2>
@@ -155,8 +168,8 @@ e1 = ThreadsX.reduce(Mean(), <span class=hljs-number >1</span>:<span class=hljs-
     <span class=hljs-meta >@reduce</span>(s += a, t += b)
 <span class=hljs-keyword >end</span>
 (s, t)</code></pre>
-<p><pre><code class="plaintext hljs">(15, -3)</code></pre> </p>
-<p> </p>
+<p><pre><code class="plaintext hljs">(15, -3)</code></pre> <div class=test ><div class=test_code ><div class=title >🔬 Test Code</div>
+<pre><code class="julia hljs"><span class=hljs-meta >@test</span> (s, t) == (<span class=hljs-number >15</span>, -<span class=hljs-number >3</span>)</code></pre></div> <div class=test_ok ><div class=title >☑ Pass</div></div></div></p>
 <div class=warn ><div class=title >⚠ Warning</div>
 <div class=content ><p><strong>Don&#39;t use locks or atomics&#33;</strong> <small>(unless you know what you are doing)</small></p>
 <p>In particular, do <em>not</em> write</p>
@@ -187,8 +200,8 @@ Threads.<span class=hljs-meta >@thread</span> fors x <span class=hljs-keyword >i
 xmin = 0
 imax = 3
 xmax = 3
-</code></pre> </p>
-<p> </p>
+</code></pre> <div class=test ><div class=test_code ><div class=title >🔬 Test Code</div>
+<pre><code class="julia hljs"><span class=hljs-meta >@test</span> (imin, xmin, imax, xmax) == (<span class=hljs-number >1</span>, <span class=hljs-number >0</span>, <span class=hljs-number >3</span>, <span class=hljs-number >3</span>)</code></pre></div> <div class=test_ok ><div class=title >☑ Pass</div></div></div></p>
 <h3 id=parallel_findminfindmax_with_threadsxreduce_tedious ><a href="#parallel_findminfindmax_with_threadsxreduce_tedious">Parallel <code>findmin</code>/<code>findmax</code> with <code>ThreadsX.reduce</code> &#40;tedious&#33;&#41;</a></h3>
 <p>Note that it is not necessary to use <code>@floop</code> for writing a custom reduction.  For example, you can write an equivalent code with <code>ThreadsX.reduce</code>:</p>
 <pre><code class="julia hljs">(imin2, xmin2, imax2, xmax2) = ThreadsX.reduce(
@@ -207,8 +220,8 @@ xmax = 3
 <span class=hljs-keyword >end</span>
 
 <span class=hljs-meta >@assert</span> (imin2, xmin2, imax2, xmax2) == (imin, xmin, imax, xmax)</code></pre>
-<p> </p>
-<p> </p>
+<p> <div class=test ><div class=test_code ><div class=title >🔬 Test Code</div>
+<pre><code class="julia hljs"><span class=hljs-meta >@test</span> (imin2, xmin2, imax2, xmax2) == (imin, xmin, imax, xmax)</code></pre></div> <div class=test_ok ><div class=title >☑ Pass</div></div></div></p>
 <p>However, as you can see, it is much more verbose and error-prone &#40;e.g., the initial values and the variables are declared in different place&#41;.</p>
 <h3 id=histogram_with_reduce ><a href="#histogram_with_reduce">Histogram with <code>reduce</code></a></h3>
 <p><code>mapreduce</code> and <code>reduce</code> are useful when combining pre-existing operations.  For example, we can easily implement histogram by combining <code>mapreduce</code>, <code>Dict</code>, and <a href="https://docs.julialang.org/en/v1/base/collections/#Base.mergewith&#33;"><code>mergewith&#33;</code></a>:</p>
@@ -232,8 +245,8 @@ f1 = mapreduce(x -&gt; <span class=hljs-built_in >Dict</span>(x =&gt; <span clas
 
 f2 = ThreadsX.mapreduce(x -&gt; SingletonDict(x =&gt; <span class=hljs-number >1</span>), mergewith!!(+), str)
 <span class=hljs-meta >@assert</span> f1 == f2</code></pre>
-<p> </p>
-<p> </p>
+<p> <div class=test ><div class=test_code ><div class=title >🔬 Test Code</div>
+<pre><code class="julia hljs"><span class=hljs-meta >@test</span> f1 == f2</code></pre></div> <div class=test_ok ><div class=title >☑ Pass</div></div></div></p>
 <p>&#40;For more information, see Transducers.jl&#39;s <a href="https://juliafolds.github.io/Transducers.jl/dev/tutorials/tutorial_parallel/#Example:-ad-hoc-histogram">ad-hoc histogram tutorial</a>.&#41;</p>
 <h3 id=practical_example_histogram_of_stopping_time_of_collatz_function ><a href="#practical_example_histogram_of_stopping_time_of_collatz_function">Practical example: Histogram of stopping time of Collatz function</a></h3>
 <p>Let&#39;s compute the histogram of <code>collatz_stopping_time</code> over some range of initial values.  Unlike the histogram example above, we know that the stopping time is a positive integer.  So, it makes sense to use an array as the data structure that maps a bin &#40;index&#41; to a count.  There is no pre-defined reducing function like <code>mergewith&#33;</code> we can use. Fortunately, it is easy to write it using <code>@reduce&#40;&#41; do</code> syntax in <code>@floop</code>:</p>
@@ -280,20 +293,41 @@ plt = plot(
 hist2 = collatz_histogram(<span class=hljs-number >1</span>:<span class=hljs-number >1_000_000</span>, ThreadedEx())
 <span class=hljs-meta >@assert</span> hist1 == hist2</code></pre>
 
-</p>
-<p> 
+<div class=test ><div class=test_code ><div class=title >🔬 Test Code</div>
+<pre><code class="julia hljs"><span class=hljs-meta >@test</span> hist1 == hist2</code></pre></div> <div class=test_ok ><div class=title >☑ Pass</div></div></div>
 <p>For example, we can easily compare the performance of sequential and threaded execution:</p>
 <pre><code class="julia-repl hljs"><span class=hljs-meta >julia&gt;</span><span class=julia > <span class=hljs-meta >@btime</span> collatz_histogram(<span class=hljs-number >1</span>:<span class=hljs-number >1_000_000</span>, SequentialEx());
 </span>  411.377 ms (5889068 allocations: 89.88 MiB)
 
 <span class=hljs-meta >julia&gt;</span><span class=julia > <span class=hljs-meta >@btime</span> collatz_histogram(<span class=hljs-number >1</span>:<span class=hljs-number >1_000_000</span>, ThreadedEx());
 </span>  123.489 ms (5694903 allocations: 86.96 MiB)</code></pre>
+<div style="float: right">
+  <small>
+  <a href="?test=show" id=show-test-result >#show test results</a>
+  </small>
+</div>
 <div class=page-foot >
   <div class=copyright >
     <a rel=license  href="http://creativecommons.org/licenses/by-sa/4.0/"><img alt="Creative Commons License" style="border-width:0" src="https://i.creativecommons.org/l/by-sa/4.0/88x31.png" /></a><br />This work is licensed under a <a rel=license  href="http://creativecommons.org/licenses/by-sa/4.0/">Creative Commons Attribution-ShareAlike 4.0 International License</a>.
   </div>
   <div class=copyright >
-    &copy; Takafumi Arakaki. Last modified: October 04, 2020. Website built with <a href="https://github.com/tlienart/Franklin.jl">Franklin.jl</a> and the <a href="https://julialang.org">Julia programming language</a>.
+    &copy; Takafumi Arakaki. Last modified: October 05, 2020. Website built with <a href="https://github.com/tlienart/Franklin.jl">Franklin.jl</a> and the <a href="https://julialang.org">Julia programming language</a>.
   </div>
 </div>
 </div>
+    
+    
+        
+
+
+    
+    <script>
+      (function() {
+        if (window.location.search.includes("?test=show")){
+          var list = document.getElementsByClassName("test");
+          for (let item of list) {
+            item.style.display = "block";
+          };
+        }
+      })()
+    </script>
