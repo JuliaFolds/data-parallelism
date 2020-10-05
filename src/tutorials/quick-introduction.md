@@ -109,10 +109,10 @@ in the Julia manual.
 
 A few examples below mention
 [Distributed.jl](https://docs.julialang.org/en/v1/stdlib/Distributed/)-based
-parallelism.  Like multi-threading example, you need to setup multiple
-worker processes to get speedup.  You can start `julia` with `-p auto`
-(or, equivalently, `--procs auto`).  Distributed.jl lets you add
-worker processes after starting Julia with
+parallelism.  Like how multi-threading is setup, you need to setup
+multiple worker processes to get speedup.  You can start `julia` with
+`-p auto` (or, equivalently, `--procs auto`).  Distributed.jl also
+lets you add worker processes after starting Julia with
 [`addprocs`](https://docs.julialang.org/en/v1/stdlib/Distributed/#Distributed.addprocs):
 
 ```julia
@@ -796,9 +796,10 @@ find it very a good example to follow for understanding what is
 possible with a clever design of the reducing function.
 
 Note that ideas presented in this tutorial are very general and should
-be applicable using [other libraries](../../explanation/libraries/).
-For example, the idea of custom reduction is applicable to GPU
-computing by using `mapreduce` on
+be applicable also when using
+[other libraries](../../explanation/libraries/).  For example, the
+idea of custom reduction is useful in GPU computing when using
+`mapreduce` on
 [`CuArray`](https://juliagpu.gitlab.io/CUDA.jl/usage/array/).
 
 \note{Work in progress. TODO: Add more tutorials and how-to guides.}
