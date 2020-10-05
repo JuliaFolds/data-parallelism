@@ -26,14 +26,3 @@ function collatz_histogram(xs, executor = ThreadedEx())
     end
     return hist
 end
-
-# Example usage:
-using Plots
-plt = plot(
-    collatz_histogram(1:1_000_000),
-    xlabel = "Stopping time",
-    ylabel = "Counts",
-    label = "",
-    size = (450, 300),
-)
-savefig(plt, joinpath(@OUTPUT, "hist_collatz_stopping_time.png")) # hide
