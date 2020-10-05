@@ -5,5 +5,15 @@
     {{ if hascode }}
         {{ insert foot_highlight.html }}
     {{ end }}
+    <script>
+      (function() {
+        if (window.location.search.includes("?test=show")){
+          var list = document.getElementsByClassName("test");
+          for (let item of list) {
+            item.style.display = "block";
+          };
+        }
+      })()
+    </script>
   </body>
 </html>

@@ -69,14 +69,6 @@ jobs:
         env:
           GKSwstype: "nul"
 
-      - name: Deploy (main)
-        if: github.event_name == 'push'
-        uses: JamesIves/github-pages-deploy-action@releases/v3
-        with:
-          SSH: true
-          BRANCH: gh-pages
-          FOLDER: src/__site
-
       - name: Deploy (preview)
         if: github.event_name == 'pull_request'
         uses: JamesIves/github-pages-deploy-action@releases/v3
@@ -99,3 +91,15 @@ jobs:
           context: Franklin/deploy
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Check build status
+        run: >-
+          julia -e 'read("src/.test-result", String) == "" ? nothing : exit(99)'
+
+      - name: Deploy (main)
+        if: github.event_name == 'push'
+        uses: JamesIves/github-pages-deploy-action@releases/v3
+        with:
+          SSH: true
+          BRANCH: gh-pages
+          FOLDER: src/__site
