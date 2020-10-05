@@ -1,5 +1,6 @@
-__site/
 .DS_Store
+.test-result
+__site/
 franklin
 franklin.pub
 node_modules/

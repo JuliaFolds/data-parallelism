@@ -42,6 +42,7 @@ Arguments:
 2. Test code. It must throw in a failure case.
 -->
 \newcommand{\test}[2]{
+@@test
 ```julia:/-test-/!#1
 #hideall
 
@@ -52,4 +53,5 @@ Base.Text("OK")
 
 \testcode{!#2}
 \testcheck{!#1}
+@@
 }

@@ -298,6 +298,9 @@ code {
     TESTING
 ================================================================== */
 
+.test {
+    display: none; }
+
 .test_code > pre,
 .test_ok > pre,
 .test_failure > pre {
