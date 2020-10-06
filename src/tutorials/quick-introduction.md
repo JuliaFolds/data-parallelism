@@ -88,7 +88,7 @@ $ julia -t auto
   (_)     | (_) (_)    |
    _ _   _| |_  __ _   |  Type "?" for help, "]?" for Pkg help.
   | | | | | | |/ _` |  |
-  | | |_| | | | (_| |  |  Version 1.5.0 (2020-08-01)
+  | | |_| | | | (_| |  |  Version 1.5.2 (2020-09-23)
  _/ |\__'_|_|_|\__'_|  |  Official https://julialang.org/ release
 |__/                   |
 
@@ -234,7 +234,7 @@ We can easily parallelize `map(collatz_stopping_time, 1:10_000)` and
 get a good speedup:
 
 ```julia-repl
-julia> Threads.nthreads()
+julia> Threads.nthreads()  # I started `julia` with `-t 4`
 4
 
 julia> using BenchmarkTools
@@ -690,7 +690,7 @@ function collatz_histogram(xs, executor = ThreadedEx())
                 fill!(view(hist, l+1:m), 0)
             end
             # Merge `obs` into `hist`:
-            @floop for (k, v) in pairs(obs)
+            for (k, v) in pairs(obs)
                 @inbounds hist[k] += v
             end
         end
@@ -754,10 +754,10 @@ threaded execution:
 
 ```julia-repl
 julia> @btime collatz_histogram(1:1_000_000, SequentialEx());
-  411.377 ms (5889068 allocations: 89.88 MiB)
+  220.022 ms (9 allocations: 13.81 KiB)
 
 julia> @btime collatz_histogram(1:1_000_000, ThreadedEx());
-  123.489 ms (5694903 allocations: 86.96 MiB)
+  58.271 ms (155 allocations: 60.81 KiB)
 ```
 
 ### Quick notes on `@threads` and `@distributed`
