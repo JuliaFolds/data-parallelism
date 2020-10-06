@@ -361,8 +361,10 @@ julia> @btime ThreadsX.maximum(collatz_stopping_time, 1:100_000)
 ### OnlineStats.jl
 
 [OnlineStats.jl](https://github.com/joshday/OnlineStats.jl) provides a
-very rich composable set of reductions. You can pass it as the first
-argument to
+[very rich](https://joshday.github.io/OnlineStats.jl/latest/stats_and_models/)
+and
+[composable](https://joshday.github.io/OnlineStats.jl/latest/collections/)
+set of reductions.  You can pass it as the first argument to
 [`ThreadsX.reduce`](https://github.com/tkf/ThreadsX.jl#onlinestatsjl):
 
 ```julia:os1
@@ -377,10 +379,9 @@ e1 = ThreadsX.reduce(Mean(), 1:10)
 \note{
 While OnlineStats.jl often does not provide the fastest way to compute
 the given statistics when all the intermediate data can fit in memory,
-in many cases you don't really need the absolute best implementation.
-However, it may be worth considering other ways to compute
-statistics if ThreadsX.jl + OnlineStats.jl becomes the
-bottleneck.
+in many cases you don't really need the absolute best performance.
+However, it may be worth considering other ways to compute statistics
+if ThreadsX.jl + OnlineStats.jl becomes the bottleneck.
 }
 
 ## Manual reductions
@@ -474,6 +475,7 @@ s2_left = s2_left + s2_right
 t2_left = t2_left + t2_right
 ```
 
+\label{no-locks}
 \warn{
 **Don't use locks or atomics!**
 ~~~<small>(unless you know what you are doing)</small>~~~
@@ -792,7 +794,7 @@ covers a similar topic with explanations for more low-level details.
 [Parallel word count](https://juliafolds.github.io/Transducers.jl/dev/tutorials/words/)
 tutorial based on Guy L. Steele Jr.'s
 [2009 ICFP talk](https://vimeo.com/6624203) is more advanced but I
-find it very a good example to follow for understanding what is
+find it a very good example to follow for understanding what is
 possible with a clever design of the reducing function.
 
 Note that ideas presented in this tutorial are very general and should
