@@ -9,7 +9,7 @@ covers a vast class of compute-intensive programs.  A major hurdle for
 using data parallelism is that you need to unlearn some habits useful
 in sequential computation (i.e., patterns result in mutations of data
 structure).  In particular, it is important to use libraries that help
-you describe *what* to compute than *how* to compute.  Practically, it
+you describe *what* to compute rather than *how* to compute.  Practically, it
 means to use generalized form of map and reduce operations and learn
 how to express your computation in terms of them.  Luckily, if you
 already know how to write
