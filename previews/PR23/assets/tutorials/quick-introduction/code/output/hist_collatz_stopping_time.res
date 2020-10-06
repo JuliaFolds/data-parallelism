@@ -1,1 +1,0 @@
-collatz_histogram (generic function with 2 methods)
