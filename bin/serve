@@ -9,4 +9,4 @@ exec ${JULIA} "${BASH_SOURCE[0]}" "$@"
 =#
 cd(joinpath(dirname(@__DIR__), "src"))
 using Franklin
-serve()
+serve(port=8643)
