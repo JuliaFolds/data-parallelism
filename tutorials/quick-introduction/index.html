@@ -8,7 +8,7 @@ julia --project</code></pre> <p>and then in the Julia REPL:</p> <pre><code class
   (_)     | (_) (_)    |
    _ _   _| |_  __ _   |  Type &quot;?&quot; for help, &quot;]?&quot; for Pkg help.
   | | | | | | |/ _` |  |
-  | | |_| | | | (_| |  |  Version 1.5.0 (2020-08-01)
+  | | |_| | | | (_| |  |  Version 1.5.2 (2020-09-23)
  _/ |\__&#x27;_|_|_|\__&#x27;_|  |  Official https://julialang.org/ release
 |__/                   |
 
@@ -79,7 +79,7 @@ plt = scatter(
 )</code></pre>
 <img src="/data-parallelism/assets/tutorials/quick-introduction/code/output/collatz_stopping_time_scatter.png" alt="">
 <p>We can easily parallelize <code>map&#40;collatz_stopping_time, 1:10_000&#41;</code> and get a good speedup:</p>
-<pre><code class="julia-repl hljs"><span class=hljs-meta >julia&gt;</span><span class=julia > Threads.nthreads()
+<pre><code class="julia-repl hljs"><span class=hljs-meta >julia&gt;</span><span class=julia > Threads.nthreads()  <span class=hljs-comment ># I started `julia` with `-t 4`</span>
 </span>4
 
 <span class=hljs-meta >julia&gt;</span><span class=julia > <span class=hljs-keyword >using</span> BenchmarkTools
@@ -357,7 +357,7 @@ maxkey(xs::SingletonDict) = first(keys(xs))
                 fill!(view(hist, l+<span class=hljs-number >1</span>:m), <span class=hljs-number >0</span>)
             <span class=hljs-keyword >end</span>
             <span class=hljs-comment ># Merge `obs` into `hist`:</span>
-            <span class=hljs-meta >@floop</span> <span class=hljs-keyword >for</span> (k, v) <span class=hljs-keyword >in</span> pairs(obs)
+            <span class=hljs-keyword >for</span> (k, v) <span class=hljs-keyword >in</span> pairs(obs)
                 <span class=hljs-meta >@inbounds</span> hist[k] += v
             <span class=hljs-keyword >end</span>
         <span class=hljs-keyword >end</span>
@@ -389,10 +389,10 @@ hist3 = collatz_histogram(<span class=hljs-number >1</span>:<span class=hljs-num
 <pre><code class="julia hljs"><span class=hljs-meta >@test</span> hist1 == hist2 == hist3</code></pre></div> <div class=test_ok ><div class=title >☑ Pass</div></div></div>
 <p>For example, we can easily compare the performance of sequential and threaded execution:</p>
 <pre><code class="julia-repl hljs"><span class=hljs-meta >julia&gt;</span><span class=julia > <span class=hljs-meta >@btime</span> collatz_histogram(<span class=hljs-number >1</span>:<span class=hljs-number >1_000_000</span>, SequentialEx());
-</span>  411.377 ms (5889068 allocations: 89.88 MiB)
+</span>  220.022 ms (9 allocations: 13.81 KiB)
 
 <span class=hljs-meta >julia&gt;</span><span class=julia > <span class=hljs-meta >@btime</span> collatz_histogram(<span class=hljs-number >1</span>:<span class=hljs-number >1_000_000</span>, ThreadedEx());
-</span>  123.489 ms (5694903 allocations: 86.96 MiB)</code></pre>
+</span>  58.271 ms (155 allocations: 60.81 KiB)</code></pre>
 <h3 id=quick_notes_on_threads_and_distributed ><a href="#quick_notes_on_threads_and_distributed">Quick notes on <code>@threads</code> and <code>@distributed</code></a></h3>
 <p>Julia itself has <a href="https://docs.julialang.org/en/v1/base/multi-threading/#Base.Threads.@threads"><code>Threads.@threads</code></a> macro for threaded <code>for</code> loop and <a href="https://docs.julialang.org/en/v1/stdlib/Distributed/#Distributed.@distributed"><code>@distributed</code></a> macro for distributed <code>for</code> loop.  They are adequate for simple use cases but come with some limitations.  For example, <code>@threads</code> does not have built-in reducing function support.  Although <code>@distributed</code> macro has reducing function support, it is limited to pre-defined functions and it is tedious to handle multiple variables.  Both of these macros only have simple static scheduler and lacks an option like <code>basesize</code> supported by FLoops.jl and ThreadsX.jl to tune load balancing.  Furthermore, the code written with <code>@threads</code> cannot be reused for <code>@distributed</code> and vice versa.</p>
 <h2 id=next_steps ><a href="#next_steps">Next steps</a></h2>
@@ -411,7 +411,7 @@ hist3 = collatz_histogram(<span class=hljs-number >1</span>:<span class=hljs-num
     <a rel=license  href="http://creativecommons.org/licenses/by-sa/4.0/"><img alt="Creative Commons License" style="border-width:0" src="https://i.creativecommons.org/l/by-sa/4.0/88x31.png" /></a><br />This work is licensed under a <a rel=license  href="http://creativecommons.org/licenses/by-sa/4.0/">Creative Commons Attribution-ShareAlike 4.0 International License</a>.
   </div>
   <div class=copyright >
-    &copy; Takafumi Arakaki. Last modified: October 05, 2020. Website built with <a href="https://github.com/tlienart/Franklin.jl">Franklin.jl</a> and the <a href="https://julialang.org">Julia programming language</a>.
+    &copy; Takafumi Arakaki. Last modified: October 06, 2020. Website built with <a href="https://github.com/tlienart/Franklin.jl">Franklin.jl</a> and the <a href="https://julialang.org">Julia programming language</a>.
   </div>
 </div>
 </div>

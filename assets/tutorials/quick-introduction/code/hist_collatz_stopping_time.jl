@@ -19,7 +19,7 @@ function collatz_histogram(xs, executor = ThreadedEx())
                 fill!(view(hist, l+1:m), 0)
             end
             # Merge `obs` into `hist`:
-            @floop for (k, v) in pairs(obs)
+            for (k, v) in pairs(obs)
                 @inbounds hist[k] += v
             end
         end
