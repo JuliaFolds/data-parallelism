@@ -151,14 +151,14 @@ c2 = dcollect(y <span class=hljs-keyword >for</span> x <span class=hljs-keyword 
 </span>  5.024 ms (1214 allocations: 69.17 KiB)
 350</code></pre>
 <h3 id=onlinestatsjl ><a href="#onlinestatsjl">OnlineStats.jl</a></h3>
-<p><a href="https://github.com/joshday/OnlineStats.jl">OnlineStats.jl</a> provides a very rich composable set of reductions. You can pass it as the first argument to <a href="https://github.com/tkf/ThreadsX.jl#onlinestatsjl"><code>ThreadsX.reduce</code></a>:</p>
+<p><a href="https://github.com/joshday/OnlineStats.jl">OnlineStats.jl</a> provides a <a href="https://joshday.github.io/OnlineStats.jl/latest/stats_and_models/">very rich</a> and <a href="https://joshday.github.io/OnlineStats.jl/latest/collections/">composable</a> set of reductions.  You can pass it as the first argument to <a href="https://github.com/tkf/ThreadsX.jl#onlinestatsjl"><code>ThreadsX.reduce</code></a>:</p>
 <pre><code class="julia hljs"><span class=hljs-keyword >using</span> OnlineStats: Mean
 e1 = ThreadsX.reduce(Mean(), <span class=hljs-number >1</span>:<span class=hljs-number >10</span>)</code></pre>
 <pre><code class="plaintext hljs">Mean: n=10 | value=5.5</code></pre>
 <div class=test ><div class=test_code ><div class=title >🔬 Test Code</div>
 <pre><code class="julia hljs"><span class=hljs-keyword >using</span> OnlineStats; <span class=hljs-meta >@test</span> e1 == fit!(Mean(), <span class=hljs-number >1</span>:<span class=hljs-number >10</span>)</code></pre></div> <div class=test_ok ><div class=title >☑ Pass</div></div></div>
 <div class=note ><div class=title >💡 Note</div>
-<div class=content >While OnlineStats.jl often does not provide the fastest way to compute the given statistics when all the intermediate data can fit in memory, in many cases you don&#39;t really need the absolute best implementation. However, it may be worth considering other ways to compute statistics if ThreadsX.jl &#43; OnlineStats.jl becomes the bottleneck.</div></div>
+<div class=content >While OnlineStats.jl often does not provide the fastest way to compute the given statistics when all the intermediate data can fit in memory, in many cases you don&#39;t really need the absolute best performance. However, it may be worth considering other ways to compute statistics if ThreadsX.jl &#43; OnlineStats.jl becomes the bottleneck.</div></div>
 <h2 id=manual_reductions ><a href="#manual_reductions">Manual reductions</a></h2>
 <p>For non-trivial parallel computations, you need to write a custom reduction.  <a href="https://github.com/JuliaFolds/FLoops.jl">FLoops.jl</a> provides a concise set of syntax for writing custom reductions.  For example, this is how to compute sums of two quantities in one sweep:</p>
 <pre><code class="julia hljs"><span class=hljs-keyword >using</span> FLoops
@@ -212,14 +212,14 @@ initial_value op input&#41;</code> syntax, you can get a rough idea by just igno
 t2_left&#41;</code> by</p>
 <pre><code class="julia hljs">s2_left = s2_left + s2_right
 t2_left = t2_left + t2_right</code></pre>
-<div class=warn ><div class=title >⚠ Warning</div>
+<p><a id=no-locks  class=anchor ></a> <div class=warn ><div class=title >⚠ Warning</div>
 <div class=content ><p><strong>Don&#39;t use locks or atomics&#33;</strong> <small>(unless you know what you are doing)</small></p>
 <p>In particular, do <em>not</em> write</p>
 <pre><code class="julia hljs">acc = Threads.Atomic{<span class=hljs-built_in >Int</span>}(<span class=hljs-number >0</span>)
 Threads.<span class=hljs-meta >@thread</span> fors x <span class=hljs-keyword >in</span> xs
     Threads.atomic_add!(acc, x + <span class=hljs-number >1</span>)
 <span class=hljs-keyword >end</span></code></pre>
-<p>Locks and atomics help you write correct <a href="https://blog.golang.org/waza-talk"><em>concurrent</em></a> programs when used appropriately.  However, they do so by <em>limiting</em> parallel execution.  Using data parallel pattern is the easiest way to get high performance.</p></div></div>
+<p>Locks and atomics help you write correct <a href="https://blog.golang.org/waza-talk"><em>concurrent</em></a> programs when used appropriately.  However, they do so by <em>limiting</em> parallel execution.  Using data parallel pattern is the easiest way to get high performance.</p></div></div></p>
 <h3 id=parallel_findminfindmax_with_reduce_do ><a href="#parallel_findminfindmax_with_reduce_do">Parallel <code>findmin</code>/<code>findmax</code> with <code>@reduce&#40;&#41; do</code></a></h3>
 <p><code>@reduce&#40;&#41; do</code> syntax is the most flexible way in FLoops.jl for expressing custom reductions.  It is very useful when one variable can influence other variable&#40;s&#41; in reduction &#40;e.g., index and value in the example below&#41;.  Note also that <code>@reduce</code> can be used multiple times in the loop body.  Here is a way to compute <code>findmin</code> and <code>findmax</code> in parallel:</p>
 <pre><code class="julia hljs"><span class=hljs-meta >@floop</span> <span class=hljs-keyword >for</span> (i, x) <span class=hljs-keyword >in</span> pairs([<span class=hljs-number >0</span>, <span class=hljs-number >1</span>, <span class=hljs-number >3</span>, <span class=hljs-number >2</span>])
@@ -397,7 +397,7 @@ hist3 = collatz_histogram(<span class=hljs-number >1</span>:<span class=hljs-num
 <p>Julia itself has <a href="https://docs.julialang.org/en/v1/base/multi-threading/#Base.Threads.@threads"><code>Threads.@threads</code></a> macro for threaded <code>for</code> loop and <a href="https://docs.julialang.org/en/v1/stdlib/Distributed/#Distributed.@distributed"><code>@distributed</code></a> macro for distributed <code>for</code> loop.  They are adequate for simple use cases but come with some limitations.  For example, <code>@threads</code> does not have built-in reducing function support.  Although <code>@distributed</code> macro has reducing function support, it is limited to pre-defined functions and it is tedious to handle multiple variables.  Both of these macros only have simple static scheduler and lacks an option like <code>basesize</code> supported by FLoops.jl and ThreadsX.jl to tune load balancing.  Furthermore, the code written with <code>@threads</code> cannot be reused for <code>@distributed</code> and vice versa.</p>
 <h2 id=next_steps ><a href="#next_steps">Next steps</a></h2>
 <p>Hopefully, this tutorial covers a bare minimum for you to start writing data-parallel programs and the documentations of <a href="https://github.com/JuliaFolds/FLoops.jl">FLoops.jl</a> and <a href="https://github.com/tkf/ThreadsX.jl">ThreadsX.jl</a> are now a bit more accessible.  These two libraries are based on the protocol designed for <a href="https://github.com/JuliaFolds/Transducers.jl">Transducers.jl</a> which also contains various tools for data parallelism.</p>
-<p>Transducers.jl&#39;s <a href="https://juliafolds.github.io/Transducers.jl/dev/tutorials/tutorial_parallel/">parallel processing tutorial</a> covers a similar topic with explanations for more low-level details. <a href="https://juliafolds.github.io/Transducers.jl/dev/tutorials/words/">Parallel word count</a> tutorial based on Guy L. Steele Jr.&#39;s <a href="https://vimeo.com/6624203">2009 ICFP talk</a> is more advanced but I find it very a good example to follow for understanding what is possible with a clever design of the reducing function.</p>
+<p>Transducers.jl&#39;s <a href="https://juliafolds.github.io/Transducers.jl/dev/tutorials/tutorial_parallel/">parallel processing tutorial</a> covers a similar topic with explanations for more low-level details. <a href="https://juliafolds.github.io/Transducers.jl/dev/tutorials/words/">Parallel word count</a> tutorial based on Guy L. Steele Jr.&#39;s <a href="https://vimeo.com/6624203">2009 ICFP talk</a> is more advanced but I find it a very good example to follow for understanding what is possible with a clever design of the reducing function.</p>
 <p>Note that ideas presented in this tutorial are very general and should be applicable also when using <a href="../../explanation/libraries/">other libraries</a>.  For example, the idea of custom reduction is useful in GPU computing when using <code>mapreduce</code> on <a href="https://juliagpu.gitlab.io/CUDA.jl/usage/array/"><code>CuArray</code></a>.</p>
 <div class=note ><div class=title >💡 Note</div>
 <div class=content >Work in progress. TODO: Add more tutorials and how-to guides.</div></div>
