@@ -213,7 +213,7 @@ end
 Just for fun, let's plot the stopping time of the initial values from
 1 to 10,000:
 
-```julia:def_collatz_stopping_time
+```julia:collatz_stopping_time_scatter
 using Plots
 plt = scatter(
     map(collatz_stopping_time, 1:10_000),
