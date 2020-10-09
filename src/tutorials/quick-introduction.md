@@ -311,7 +311,7 @@ Functions such as `sum`, `prod`, `maximum`, and `all` are the examples
 of *reduction* (aka
 [*fold*](https://en.wikipedia.org/wiki/Fold_(higher-order_function)))
 that can be parallelized.  They are very powerful tools when combined
-with iterator comprehensions.  Using ThreadsX.jl, a sum of a iterator
+with iterator comprehensions.  Using ThreadsX.jl, a sum of an iterator
 created by the comprehension syntax
 
 ```julia:reduction2
