@@ -127,7 +127,7 @@ c2 = dcollect(y <span class=hljs-keyword >for</span> x <span class=hljs-keyword 
 <div class=test ><div class=test_code ><div class=title >🔬 Test Code</div>
 <pre><code class="julia hljs"><span class=hljs-meta >@test</span> c1 == c2 == [<span class=hljs-number >1</span>, <span class=hljs-number >1</span>, <span class=hljs-number >2</span>, <span class=hljs-number >3</span>]</code></pre></div> <div class=test_ok ><div class=title >☑ Pass</div></div></div>
 <h2 id=pre-defined_reductions ><a href="#pre-defined_reductions">Pre-defined reductions</a></h2>
-<p>Functions such as <code>sum</code>, <code>prod</code>, <code>maximum</code>, and <code>all</code> are the examples of <em>reduction</em> &#40;aka <a href="https://en.wikipedia.org/wiki/Fold_&#40;higher-order_function&#41;"><em>fold</em></a>&#41; that can be parallelized.  They are very powerful tools when combined with iterator comprehensions.  Using ThreadsX.jl, a sum of a iterator created by the comprehension syntax</p>
+<p>Functions such as <code>sum</code>, <code>prod</code>, <code>maximum</code>, and <code>all</code> are the examples of <em>reduction</em> &#40;aka <a href="https://en.wikipedia.org/wiki/Fold_&#40;higher-order_function&#41;"><em>fold</em></a>&#41; that can be parallelized.  They are very powerful tools when combined with iterator comprehensions.  Using ThreadsX.jl, a sum of an iterator created by the comprehension syntax</p>
 <pre><code class="julia hljs">d1 = sum(x + <span class=hljs-number >1</span> <span class=hljs-keyword >for</span> x <span class=hljs-keyword >in</span> <span class=hljs-number >1</span>:<span class=hljs-number >3</span>)</code></pre>
 <pre><code class="plaintext hljs">9</code></pre>
 <p>can easily be parallelized by</p>
@@ -411,7 +411,7 @@ hist3 = collatz_histogram(<span class=hljs-number >1</span>:<span class=hljs-num
     <a rel=license  href="http://creativecommons.org/licenses/by-sa/4.0/"><img alt="Creative Commons License" style="border-width:0" src="https://i.creativecommons.org/l/by-sa/4.0/88x31.png" /></a><br />This work is licensed under a <a rel=license  href="http://creativecommons.org/licenses/by-sa/4.0/">Creative Commons Attribution-ShareAlike 4.0 International License</a>.
   </div>
   <div class=copyright >
-    &copy; Takafumi Arakaki. Last modified: October 06, 2020. Website built with <a href="https://github.com/tlienart/Franklin.jl">Franklin.jl</a> and the <a href="https://julialang.org">Julia programming language</a>.
+    &copy; Takafumi Arakaki. Last modified: October 09, 2020. Website built with <a href="https://github.com/tlienart/Franklin.jl">Franklin.jl</a> and the <a href="https://julialang.org">Julia programming language</a>.
   </div>
 </div>
 </div>
