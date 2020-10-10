@@ -12,9 +12,9 @@ need to start a new `julia` process each time.
 Some libraries such as Transducers.jl, FLoops.jl, ThreadsX.jl, and
 Parallelism.jl support `basesize` option (see, e.g.,
 [`Transducers.foldxt`](https://juliafolds.github.io/Transducers.jl/dev/reference/manual/#Transducers.foldxt)).
-It is used for the size of the chunk of input collection processed by
-one task.  Thus, to simulate running code with `N` threads, you can
-pass
+It is used for specifying the size of the chunk of input collection
+processed by one task.  Thus, to simulate running code with `N`
+threads, you can pass
 
 ```julia
 basesize = length(input_collection) ÷ N
