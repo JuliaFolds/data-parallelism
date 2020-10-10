@@ -44,6 +44,8 @@ a3 = pmap(string, <span class=hljs-number >1</span>:<span class=hljs-number >9</
 <pre><code class="plaintext hljs">Test Summary: | Pass  Total
 test set      |    2      2
 </code></pre></div></div>
+<div class=note ><div class=title >💡 Note</div>
+<div class=content >In the above example, the inputs &#40;<code>1:9</code> and <code>&#39;a&#39;:&#39;i&#39;</code>&#41; are too small for multi-threading to be useful.  In this tutorial, almost all examples except &quot;Practical example&quot; are toy examples that are designed to demonstrate how the functions work.  It is an &quot;exercise&quot; for the reader to try a larger input sizes and see on what size multi-threading becomes useful.</div></div>
 <h3 id=practical_example_stopping_time_of_collatz_function ><a href="#practical_example_stopping_time_of_collatz_function">Practical example: Stopping time of Collatz function</a></h3>
 <p>As a slightly more &quot;practical&quot; example, let&#39;s play with the <a href="https://en.wikipedia.org/wiki/Collatz_conjecture">Collatz conjecture</a> which states that recursive application the <em>Collatz function</em> defined as</p>
 <pre><code class="julia hljs">collatz(x) =
@@ -411,7 +413,7 @@ hist3 = collatz_histogram(<span class=hljs-number >1</span>:<span class=hljs-num
     <a rel=license  href="http://creativecommons.org/licenses/by-sa/4.0/"><img alt="Creative Commons License" style="border-width:0" src="https://i.creativecommons.org/l/by-sa/4.0/88x31.png" /></a><br />This work is licensed under a <a rel=license  href="http://creativecommons.org/licenses/by-sa/4.0/">Creative Commons Attribution-ShareAlike 4.0 International License</a>.
   </div>
   <div class=copyright >
-    &copy; Takafumi Arakaki. Last modified: October 09, 2020. Website built with <a href="https://github.com/tlienart/Franklin.jl">Franklin.jl</a> and the <a href="https://julialang.org">Julia programming language</a>.
+    &copy; Takafumi Arakaki. Last modified: October 10, 2020. Website built with <a href="https://github.com/tlienart/Franklin.jl">Franklin.jl</a> and the <a href="https://julialang.org">Julia programming language</a>.
   </div>
 </div>
 </div>
