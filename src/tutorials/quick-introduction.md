@@ -170,6 +170,15 @@ a3 = pmap(string, 1:9, 'a':'i')
 
 }
 
+\note{
+In the above example, the inputs (`1:9` and `'a':'i'`) are too small
+for multi-threading to be useful.  In this tutorial, almost all
+examples except "Practical example" are toy examples that are
+designed to demonstrate how the functions work.  It is an "exercise"
+for the reader to try a larger input sizes and see on what size
+multi-threading becomes useful.
+}
+
 ### Practical example: Stopping time of Collatz function
 
 As a slightly more "practical" example, let's play with the
