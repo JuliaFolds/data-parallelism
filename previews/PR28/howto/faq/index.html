@@ -11,7 +11,7 @@ Threads.nthreads&#40;&#41;</code> and there is no other function spawning tasks&
 
 <span class=hljs-meta >julia&gt;</span><span class=julia > <span class=hljs-meta >@btime</span> sum_nthreads(sin, <span class=hljs-number >1</span>:<span class=hljs-number >1_000_000</span>, <span class=hljs-number >4</span>);
 </span>  4.403 ms (128 allocations: 7.03 KiB)</code></pre>
-<p>Note that this trick cannot be used for experimenting with load-balancing of multi-threaded code since load-balancing requires starting more than <code>Threads.nthreads&#40;&#41;</code> tasks.</p>
+<p>Note that this trick cannot be used for experimenting the effect of the number of threads to the load-balancing of multi-threaded code since load-balancing requires starting more than <code>Threads.nthreads&#40;&#41;</code> tasks.</p>
 <a id=multi-threading-vs-multi-processing  class=anchor ></a>
 <h2 id=should_i_use_multi-threading_or_should_i_use_multi-processing ><a href="#should_i_use_multi-threading_or_should_i_use_multi-processing">Should I use multi-threading? Or should I use multi-processing?</a></h2>
 <p>Julia supports <a href="https://docs.julialang.org/en/v1/manual/multi-threading/">threading-based</a> &#40;via <code>Base.Threads</code>&#41; and <a href="https://docs.julialang.org/en/v1/manual/distributed-computing/">process-based</a> &#40;via <code>Distributed</code>&#41; parallelism paradigms.  Each paradigm has pros and cons.  Choosing the best option requires understanding what your program does.</p>
