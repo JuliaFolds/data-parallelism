@@ -1,5 +1,6 @@
 # Frequently asked questions
 
+\label{set-nthreads-at-run-time}
 ## Can I change the number of execution threads without restarting `julia`?
 
 The number of execution threads is specified at the time `julia` is
@@ -40,6 +41,7 @@ Note that this trick cannot be used for experimenting with
 load-balancing of multi-threaded code since load-balancing requires
 starting more than `Threads.nthreads()` tasks.
 
+\label{multi-threading-vs-multi-processing}
 ## Should I use multi-threading? Or should I use multi-processing?
 
 Julia supports
