@@ -37,9 +37,10 @@ julia> @btime sum_nthreads(sin, 1:1_000_000, 4);
   4.403 ms (128 allocations: 7.03 KiB)
 ```
 
-Note that this trick cannot be used for experimenting with
-load-balancing of multi-threaded code since load-balancing requires
-starting more than `Threads.nthreads()` tasks.
+Note that this trick cannot be used for experimenting the effect of
+the number of threads to the load-balancing of multi-threaded code
+since load-balancing requires starting more than `Threads.nthreads()`
+tasks.
 
 \label{multi-threading-vs-multi-processing}
 ## Should I use multi-threading? Or should I use multi-processing?
