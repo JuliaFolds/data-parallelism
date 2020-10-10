@@ -25,6 +25,8 @@ Threads.nthreads()` and there is no other function spawning tasks).
 For example:
 
 ```julia-repl
+julia> using ThreadsX, BenchmarkTools
+
 julia> sum_nthreads(f, xs, N) = ThreadsX.sum(f, xs; basesize = length(xs) ÷ N);
 
 julia> @btime sum_nthreads(sin, 1:1_000_000, 1);
