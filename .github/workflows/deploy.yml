@@ -30,15 +30,15 @@ jobs:
           github.repository == github.event.pull_request.head.repo.full_name
         # Checking against github.repository to avoid failing in PRs
         # from forks.
-        uses: webfactory/ssh-agent@v0.2.0
+        uses: webfactory/ssh-agent@v0.4.1
         with:
           ssh-private-key: ${{ secrets.FRANKLIN_PRIV }}
 
       - name: Fix URLs for PR preview deployment (pull request previews)
         if: github.event_name == 'pull_request'
         run: |
-          echo "::set-env name=JULIA_FRANKLIN_WEBSITE_URL::https://juliafolds.github.io/data-parallelism/previews/PR${{ github.event.number }}/"
-          echo "::set-env name=JULIA_FRANKLIN_PREPATH::data-parallelism/previews/PR${{ github.event.number }}"
+          echo "JULIA_FRANKLIN_WEBSITE_URL=https://juliafolds.github.io/data-parallelism/previews/PR${{ github.event.number }}/" >> $GITHUB_ENV
+          echo "JULIA_FRANKLIN_PREPATH=data-parallelism/previews/PR${{ github.event.number }}" >> $GITHUB_ENV
       - run: echo $JULIA_FRANKLIN_WEBSITE_URL
       - run: echo $JULIA_FRANKLIN_PREPATH
 
