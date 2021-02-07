@@ -29,8 +29,8 @@ is also very helpful for getting into data parallelism mind set.
 
 This introduction primary focuses on the Julia packages that I
 (Takafumi Arakaki **`@tkf`**) have developed.  As a result, it
-currently focuses on thread-based parallelism.  There is simple
-distributed computing support and preliminary GPU support with
+currently focuses on thread-based parallelism.  There is a simple
+distributed computing support and a preliminary GPU support with
 [FoldsCUDA.jl](https://github.com/JuliaFolds/FoldsCUDA.jl).
 See also
 [other parallel-computation libraries in Julia](../../explanation/libraries/).
