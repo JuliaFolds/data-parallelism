@@ -29,10 +29,9 @@ is also very helpful for getting into data parallelism mind set.
 
 This introduction primary focuses on the Julia packages that I
 (Takafumi Arakaki **`@tkf`**) have developed.  As a result, it
-currently focuses on thread-based parallelism.  There is simple
-distributed computing support.  GPU support is a frequently requested
-feature but
-[it hasn't been implemented yet](https://github.com/JuliaFolds/Transducers.jl/issues/236).
+currently focuses on thread-based parallelism.  There is a simple
+distributed computing support and a preliminary GPU support with
+[FoldsCUDA.jl](https://github.com/JuliaFolds/FoldsCUDA.jl).
 See also
 [other parallel-computation libraries in Julia](../../explanation/libraries/).
 
@@ -318,7 +317,7 @@ c2 = dcollect(y for x in 1:3 if isodd(x) for y in 1:x)
 
 Functions such as `sum`, `prod`, `maximum`, and `all` are the examples
 of *reduction* (aka
-[*fold*](https://en.wikipedia.org/wiki/Fold_(higher-order_function)))
+[*fold*](https://en.wikipedia.org/wiki/Fold_(higher-order_function)))[^1]
 that can be parallelized.  They are very powerful tools when combined
 with iterator comprehensions.  Using ThreadsX.jl, a sum of an iterator
 created by the comprehension syntax
@@ -341,6 +340,8 @@ d2 = ThreadsX.sum(x + 1 for x in 1:3)
 
 For the full list of pre-defined reductions and other parallelized
 functions, type `ThreadsX.` and press \kbd{TAB} in the REPL.
+
+[^1]: `map` and `collect` are also fold.
 
 ### Practical example: Maximum stopping time of Collatz function
 
