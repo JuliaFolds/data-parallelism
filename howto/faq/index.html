@@ -16,10 +16,13 @@ Threads.nthreads&#40;&#41;</code> and there is no other function spawning tasks&
 <p>Note that this trick cannot be used for experimenting the effect of the number of threads to the load-balancing of multi-threaded code since load-balancing requires starting more than <code>Threads.nthreads&#40;&#41;</code> tasks.</p>
 <a id=multi-threading-vs-multi-processing  class=anchor ></a>
 <h2 id=should_i_use_multi-threading_or_should_i_use_multi-processing ><a href="#should_i_use_multi-threading_or_should_i_use_multi-processing">Should I use multi-threading? Or should I use multi-processing?</a></h2>
-<p>Julia supports <a href="https://docs.julialang.org/en/v1/manual/multi-threading/">threading-based</a> &#40;via <code>Base.Threads</code>&#41; and <a href="https://docs.julialang.org/en/v1/manual/distributed-computing/">process-based</a> &#40;via <code>Distributed</code>&#41; parallelism paradigms.  Each paradigm has pros and cons.  Choosing the best option requires understanding what your program does.</p>
-<p>Ideally, it would be nice if you don&#39;t have to make a choice of the parallelism paradigm before start writing the program.  Frameworks such as Transducers.jl and FLoops.jl can help you write parallel algorithm that is agnostic about the execution mechanism &#40;multi-threading or multi-processing&#41;.  However, the multi-processing backend of these libraries is currently limited compared to multi-threading backend.</p>
+<p>Julia supports <a href="https://docs.julialang.org/en/v1/manual/multi-threading/">threading-based</a> &#40;via <code>Base.Threads</code>&#41; and <a href="https://docs.julialang.org/en/v1/manual/distributed-computing/">process-based</a> &#40;via <a href="https://docs.julialang.org/en/v1/stdlib/Distributed/">Distributed.jl</a>&#41; parallelism paradigms.  Each paradigm has pros and cons.  Choosing the best option requires understanding what your program does.</p>
 <p>Multi-threading is better for processing complex and large objects whose serialization become bottleneck in multi-processing -based parallelism.  Note that <a href="https://github.com/JuliaParallel/DistributedArrays.jl">DistributedArrays.jl</a> can be used to reduce serialization overhead in multi-processing.</p>
-<p>If your code allocates many intermediate objects, multi-processing -based frameworks such as <code>Distributed</code> standard library or MPI.jl are better option.  This is because <code>julia</code>&#39;s memory management system can be a bottleneck for scaling such type of code to many execution threads.</p>
+<p>If your code allocates many intermediate objects, multi-processing -based frameworks such as <a href="https://docs.julialang.org/en/v1/stdlib/Distributed/">Distributed.jl</a> standard library, <a href="https://github.com/JuliaParallel/Dagger.jl">Dagger.jl</a>, or MPI.jl are better option. This is because <code>julia</code>&#39;s memory management system &#40;garbage collection; GC&#41; can be a bottleneck for scaling such type of code to many execution threads.</p>
+<p>To make it easy to balance with these trade-offs, it is recommended to use a high-level of abstraction such as data parallelism that helps you switch underlying execution mechanisms. For example JuliaFolds packages such as <a href="https://github.com/JuliaFolds/Folds.jl">Folds.jl</a>, <a href="https://github.com/JuliaFolds/FLoops.jl">FLoops.jl</a>, and <a href="https://github.com/JuliaFolds/Transducers.jl">Transducers.jl</a> have <em>executor</em> argument to easily switch thread-based and process-based execution mechanisms.</p>
+<p></p>
+<h2 id=why_is_the_approach_using_statethreadid_not_mentioned ><a href="#why_is_the_approach_using_statethreadid_not_mentioned">Why is the approach using <code>state&#91;threadid&#40;&#41;&#93;</code> not mentioned?</a></h2>
+<p>See: <a href="https://juliafolds.github.io/FLoops.jl/dev/explanation/faq/#faq-state-threadid">What is the difference of <code>@reduce</code> and <code>@init</code> to the approach using <code>state&#91;threadid&#40;&#41;&#93;</code>? · FAQ · FLoops</a></p>
 <div style="float: right">
   <small>
   <a href="?test=show" id=show-test-result >#show test results</a>
@@ -30,7 +33,7 @@ Threads.nthreads&#40;&#41;</code> and there is no other function spawning tasks&
     <a rel=license  href="http://creativecommons.org/licenses/by-sa/4.0/"><img alt="Creative Commons License" style="border-width:0" src="https://i.creativecommons.org/l/by-sa/4.0/88x31.png" /></a><br />This work is licensed under a <a rel=license  href="http://creativecommons.org/licenses/by-sa/4.0/">Creative Commons Attribution-ShareAlike 4.0 International License</a>.
   </div>
   <div class=copyright >
-    &copy; Takafumi Arakaki. Last modified: February 07, 2021. Website built with <a href="https://github.com/tlienart/Franklin.jl">Franklin.jl</a> and the <a href="https://julialang.org">Julia programming language</a>.
+    &copy; Takafumi Arakaki. Last modified: March 15, 2021. Website built with <a href="https://github.com/tlienart/Franklin.jl">Franklin.jl</a> and the <a href="https://julialang.org">Julia programming language</a>.
   </div>
 </div>
 </div>

@@ -3,6 +3,7 @@
 | **[Dagger.jl](#dagger-jl)** | **`@JuliaParallel`** | [![GitHub](https://img.shields.io/github/stars/JuliaParallel/Dagger.jl?style=social)][Dagger.jl-code] | [![Documentation](https://img.shields.io/badge/docs-Dagger.jl-blue.svg)][Dagger.jl-docs] | distributed |
 | **[FLoops.jl](#floops-jl)** | **`@JuliaFolds`** | [![GitHub](https://img.shields.io/github/stars/JuliaFolds/FLoops.jl?style=social)][FLoops.jl-code] | [![Documentation](https://img.shields.io/badge/docs-FLoops.jl-blue.svg)][FLoops.jl-docs] | threaded, distributed |
 | **[KissThreading.jl](#kissthreading-jl)** | **`@mohamed82008`** | [![GitHub](https://img.shields.io/github/stars/mohamed82008/KissThreading.jl?style=social)][KissThreading.jl-code] |  | threaded |
+| **[ParallelStencil.jl](#parallelstencil-jl)** | **`@omlins`** | [![GitHub](https://img.shields.io/github/stars/omlins/ParallelStencil.jl?style=social)][ParallelStencil.jl-code] | [![Documentation](https://img.shields.io/badge/docs-ParallelStencil.jl-blue.svg)][ParallelStencil.jl-docs] | threaded, distributed, GPU |
 | **[Parallelism.jl](#parallelism-jl)** | **`@invenia`** | [![GitHub](https://img.shields.io/github/stars/invenia/Parallelism.jl?style=social)][Parallelism.jl-code] | [![Documentation](https://img.shields.io/badge/docs-Parallelism.jl-blue.svg)][Parallelism.jl-docs] | threaded |
 | **[Strided.jl](#strided-jl)** | **`@Jutho`** | [![GitHub](https://img.shields.io/github/stars/Jutho/Strided.jl?style=social)][Strided.jl-code] |  | threaded |
 | **[TensorOperations.jl](#tensoroperations-jl)** | **`@Jutho`** | [![GitHub](https://img.shields.io/github/stars/Jutho/TensorOperations.jl?style=social)][TensorOperations.jl-code] | [![Documentation](https://img.shields.io/badge/docs-TensorOperations.jl-blue.svg)][TensorOperations.jl-docs] | threaded, GPU |
@@ -18,6 +19,8 @@
 [FLoops.jl-docs]: https://JuliaFolds.github.io/FLoops.jl/stable/
 [KissThreading.jl-code]: https://github.com/mohamed82008/KissThreading.jl
 [KissThreading.jl-docs]: nothing
+[ParallelStencil.jl-code]: https://github.com/omlins/ParallelStencil.jl
+[ParallelStencil.jl-docs]: https://github.com/omlins/ParallelStencil.jl#contents
 [Parallelism.jl-code]: https://github.com/invenia/Parallelism.jl
 [Parallelism.jl-docs]: https://invenia.github.io/Parallelism.jl/stable/
 [Strided.jl-code]: https://github.com/Jutho/Strided.jl
