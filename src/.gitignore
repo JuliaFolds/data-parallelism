@@ -1,6 +1,7 @@
 .DS_Store
 .test-result
 __site/
+_rss
 franklin
 franklin.pub
 node_modules/
