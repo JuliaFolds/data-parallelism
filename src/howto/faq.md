@@ -51,17 +51,9 @@ Julia supports
 [threading-based](https://docs.julialang.org/en/v1/manual/multi-threading/)
 (via `Base.Threads`) and
 [process-based](https://docs.julialang.org/en/v1/manual/distributed-computing/)
-(via `Distributed`) parallelism paradigms.  Each paradigm has pros and
+(via [Distributed.jl]) parallelism paradigms.  Each paradigm has pros and
 cons.  Choosing the best option requires understanding what your
 program does.
-
-Ideally, it would be nice if you don't have to make a choice of the
-parallelism paradigm before start writing the program.  Frameworks
-such as Transducers.jl and FLoops.jl can help you write parallel
-algorithm that is agnostic about the execution mechanism
-(multi-threading or multi-processing).  However, the multi-processing
-backend of these libraries is currently limited compared to
-multi-threading backend.
 
 Multi-threading is better for processing complex and large objects
 whose serialization become bottleneck in multi-processing -based
@@ -69,8 +61,26 @@ parallelism.  Note that
 [DistributedArrays.jl](https://github.com/JuliaParallel/DistributedArrays.jl)
 can be used to reduce serialization overhead in multi-processing.
 
-If your code allocates many intermediate objects, multi-processing
--based frameworks such as `Distributed` standard library or MPI.jl are
-better option.  This is because `julia`'s memory management system can
-be a bottleneck for scaling such type of code to many execution
-threads.
+If your code allocates many intermediate objects, multi-processing -based
+frameworks such as [Distributed.jl] standard library, [Dagger.jl], or MPI.jl
+are better option. This is because `julia`'s memory management system
+(garbage collection; GC) can be a bottleneck for scaling such type of code to
+many execution threads.
+
+To make it easy to balance with these trade-offs, it is recommended to use a
+high-level of abstraction such as data parallelism that helps you switch
+underlying execution mechanisms. For example JuliaFolds packages such as
+[Folds.jl], [FLoops.jl], and [Transducers.jl] have _executor_ argument to
+easily switch thread-based and process-based execution mechanisms.
+
+[Distributed.jl]: https://docs.julialang.org/en/v1/stdlib/Distributed/
+[Dagger.jl]: https://github.com/JuliaParallel/Dagger.jl
+[Folds.jl]: https://github.com/JuliaFolds/Folds.jl
+[FLoops.jl]: https://github.com/JuliaFolds/FLoops.jl
+[Transducers.jl]: https://github.com/JuliaFolds/Transducers.jl
+
+## Why is the approach using `state[threadid()]` not mentioned?
+
+See: [What is the difference of `@reduce` and `@init` to the approach using
+`state[threadid()]`? · FAQ ·
+FLoops](https://juliafolds.github.io/FLoops.jl/dev/explanation/faq/#faq-state-threadid)
