@@ -16,6 +16,7 @@ repos = split(
     https://github.com/mcabbott/Tullio.jl
     https://github.com/invenia/Parallelism.jl
     https://github.com/JuliaParallel/Dagger.jl
+    https://github.com/omlins/ParallelStencil.jl
     https://github.com/tkf/ThreadsX.jl
     https://github.com/JuliaFolds/Transducers.jl
     https://github.com/JuliaFolds/FLoops.jl
@@ -29,10 +30,12 @@ docs_urls = Dict(
     "ThreadTools" => nothing,
     "ThreadPools.jl" => "https://tro3.github.io/ThreadPools.jl/",
     "Tullio.jl" => nothing,
+    "ParallelStencil.jl" => "https://github.com/omlins/ParallelStencil.jl#contents",
 )
 keywords_mapping = Dict(
     "TensorOperations.jl" => "threaded, GPU",
     "Tullio.jl" => "threaded, GPU",
+    "ParallelStencil.jl" => "threaded, distributed, GPU",
     "Dagger.jl" => "distributed",
     "FLoops.jl" => "threaded, distributed",
     "Transducers.jl" => "threaded, distributed",
