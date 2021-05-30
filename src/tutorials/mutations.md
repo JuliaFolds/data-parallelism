@@ -18,13 +18,15 @@ to use single-owner local mutable state [^concurrency].  In particular, we will
 see that unlearning sequential idiom was worth the effort since it points
 us to what we call [ownership-passing style](#ownership-passing-style) that can
 be used to construct mutation-based parallel reduction from mutation-free
-("purely functional") reduction *as an optimization*.  This tutorial provides an
-overview of the mutable object handling in data-parallel Julia programs
-[^threadid].  It also discusses the effect and analysis of [false
-sharing](https://en.wikipedia.org/wiki/False_sharing) which is a major
-performance pitfall when using in-place operations in a parallel program.
+("purely functional") reduction *as an optimization*.
 
-[^concurrency]: Locks and atomics are important building blocks for concurrent programming and [non-blocking algorithms and data structures](https://en.wikipedia.org/wiki/Non-blocking_algorithm) are very useful for high-performance applications. Although these aspects become non-negligible for squeezing out the "last bits" of the performance, we here focus on how to construct parallel programs independent of how the synchronizations and scheduling are managed. This is the key for writing portable and correct parallel programs. See also: [concurrency is not parallelism](https://blog.golang.org/waza-talk).
+This tutorial provides an overview of the mutable object handling in
+data-parallel Julia programs [^threadid].  It also discusses the effect and
+analysis of [false sharing](https://en.wikipedia.org/wiki/False_sharing) which
+is a major performance pitfall when using in-place operations in a parallel
+program.
+
+[^concurrency]: Locks and atomics are important building blocks for concurrent programming and [non-blocking algorithms and data structures](https://en.wikipedia.org/wiki/Non-blocking_algorithm) are very useful for high-performance applications. Although these aspects become non-negligible for squeezing out the "last bits" of the performance, here, we focus on how to construct parallel programs independent of how the synchronizations and scheduling are managed. This is the key for writing portable and correct parallel programs. See also: [concurrency is not parallelism](https://blog.golang.org/waza-talk).
 
 [^threadid]: If you are familiar with the approach using `threadid` and wonder why it is not discussed here, take a look at [What is the difference of `@reduce` and `@init` to the approach using `state[threadid()]`? · FAQ · FLoops](https://juliafolds.github.io/FLoops.jl/dev/explanation/faq/#faq-state-threadid).
 
