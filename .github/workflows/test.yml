@@ -1,0 +1,22 @@
+name: Run tests
+
+on:
+  push:
+    branches:
+      - master
+    tags: '*'
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    name: Test
+    steps:
+      - uses: actions/checkout@v2
+      - name: Setup julia
+        uses: julia-actions/setup-julia@v1
+        with:
+          version: '1.6'
+      - run: make test
+        env:
+          JULIA_NUM_THREADS: '2'
