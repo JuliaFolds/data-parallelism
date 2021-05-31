@@ -54,7 +54,7 @@ latest released version (1.5.2 as of writing).  You can download it at
 
 Once you get `julia`, you can get the dependencies required for this
 tutorial by running `using Pkg;
-Pkg.add(["Transducers", "ThreadsX", "OnlineStats", "FLoops", "MicroCollections", "BangBang", "Plots", "BenchmarkTools"])`
+Pkg.add(["Transducers", "Folds", "OnlineStats", "FLoops", "MicroCollections", "BangBang", "Plots", "BenchmarkTools"])`
 in Julia REPL.
 
 If you prefer using exactly the same environment used for testing this
@@ -135,13 +135,13 @@ a1 = map(string, 1:9, 'a':'i')
 \show{map1}
 
 We can simply replace it with
-[`ThreadsX.map`](https://github.com/tkf/ThreadsX.jl) for thread-based
+[`Folds.map`](https://github.com/JuliaFolds/Folds.jl) for thread-based
 parallelism (see also
 [other libraries](../../explanation/libraries/)):
 
 ```julia:map2
-using ThreadsX
-a2 = ThreadsX.map(string, 1:9, 'a':'i')
+using Folds
+a2 = Folds.map(string, 1:9, 'a':'i')
 @assert a1 == a2
 ```
 
@@ -250,7 +250,7 @@ julia> using BenchmarkTools
 julia> @btime map(collatz_stopping_time, 1:100_000);
   18.116 ms (2 allocations: 781.33 KiB)
 
-julia> @btime ThreadsX.map(collatz_stopping_time, 1:100_000);
+julia> @btime Folds.map(collatz_stopping_time, 1:100_000);
   5.391 ms (1665 allocations: 7.09 MiB)
 ```
 
@@ -273,10 +273,10 @@ b1
 \show{iter1}
 
 The iterator comprehension can be executed with threads by using
-[`ThreadsX.collect`](https://github.com/tkf/ThreadsX.jl):
+[`Folds.collect`](https://github.com/JuliaFolds/Folds.jl):
 
 ```julia:iter2
-b4 = ThreadsX.collect(x + 1 for x in 1:3)
+b4 = Folds.collect(x + 1 for x in 1:3)
 @assert b1 == b4
 ```
 
@@ -295,7 +295,7 @@ Note that more complex composition of mapping, filtering, and
 flattening can also be executed in parallel:
 
 ```julia:iter-complex1
-c1 = ThreadsX.collect(y for x in 1:3 if isodd(x) for y in 1:x)
+c1 = Folds.collect(y for x in 1:3 if isodd(x) for y in 1:x)
 ```
 
 \show{iter-complex1}
@@ -319,7 +319,7 @@ Functions such as `sum`, `prod`, `maximum`, and `all` are the examples
 of *reduction* (aka
 [*fold*](https://en.wikipedia.org/wiki/Fold_(higher-order_function)))[^1]
 that can be parallelized.  They are very powerful tools when combined
-with iterator comprehensions.  Using ThreadsX.jl, a sum of an iterator
+with iterator comprehensions.  Using Folds.jl, a sum of an iterator
 created by the comprehension syntax
 
 ```julia:reduction2
@@ -331,7 +331,7 @@ d1 = sum(x + 1 for x in 1:3)
 can easily be parallelized by
 
 ```julia:reduction3
-d2 = ThreadsX.sum(x + 1 for x in 1:3)
+d2 = Folds.sum(x + 1 for x in 1:3)
 ```
 
 \show{reduction3}
@@ -339,7 +339,7 @@ d2 = ThreadsX.sum(x + 1 for x in 1:3)
 \test{reduction}{@test d1 == d2}
 
 For the full list of pre-defined reductions and other parallelized
-functions, type `ThreadsX.` and press \kbd{TAB} in the REPL.
+functions, type `Folds.` and press \kbd{TAB} in the REPL.
 
 [^1]: `map` and `collect` are also fold.
 
@@ -349,7 +349,7 @@ We can use `maximum` to compute the maximum stopping time of Collatz
 function on a given the range of initial values
 
 ```julia:max_collatz_stopping_time
-max_time = ThreadsX.maximum(collatz_stopping_time, 1:100_000)
+max_time = Folds.maximum(collatz_stopping_time, 1:100_000)
 ```
 
 \show{max_collatz_stopping_time}
@@ -363,7 +363,7 @@ julia> @btime maximum(collatz_stopping_time, 1:100_000)
   17.625 ms (0 allocations: 0 bytes)
 350
 
-julia> @btime ThreadsX.maximum(collatz_stopping_time, 1:100_000)
+julia> @btime Folds.maximum(collatz_stopping_time, 1:100_000)
   5.024 ms (1214 allocations: 69.17 KiB)
 350
 ```
@@ -375,23 +375,23 @@ julia> @btime ThreadsX.maximum(collatz_stopping_time, 1:100_000)
 and
 [composable](https://joshday.github.io/OnlineStats.jl/latest/collections/)
 set of reductions.  You can pass it as the first argument to
-[`ThreadsX.reduce`](https://github.com/tkf/ThreadsX.jl#onlinestatsjl):
+[`Folds.reduce`](https://github.com/JuliaFolds/Folds.jl#onlinestatsjl):
 
 ```julia:os1
 using OnlineStats: Mean
-e1 = ThreadsX.reduce(Mean(), 1:10)
+e1 = Folds.reduce(Mean(), 1:10)
 ```
 
 \show{os1}
 
-\test{os}{using OnlineStats; @test e1 == fit!(Mean(), 1:10)}
+\test{os}{using Test, OnlineStats; @test e1 == fit!(Mean(), 1:10)}
 
 \note{
 While OnlineStats.jl often does not provide the fastest way to compute
 the given statistics when all the intermediate data can fit in memory,
 in many cases you don't really need the absolute best performance.
 However, it may be worth considering other ways to compute statistics
-if ThreadsX.jl + OnlineStats.jl becomes the bottleneck.
+if Folds.jl + OnlineStats.jl becomes the bottleneck.
 }
 
 ## Manual reductions
@@ -598,14 +598,14 @@ the second `@reduce() do` block are replaced with `xmax_right` and
 to "pair" `x`/`i` with `xmin`/`imin` or with `xmax`/`imax` depending
 on which `if` block we are in.
 
-### Parallel `findmin`/`findmax` with `ThreadsX.reduce` (tedious!)
+### Parallel `findmin`/`findmax` with `Folds.reduce` (tedious!)
 
 Note that it is not necessary to use `@floop` for writing a custom
 reduction.  For example, you can write an equivalent code with
-`ThreadsX.reduce`:
+`Folds.reduce`:
 
 ```julia:floop500
-(imin3, xmin3, imax3, xmax3) = ThreadsX.reduce(
+(imin3, xmin3, imax3, xmax3) = Folds.reduce(
     ((i, x, i, x) for (i, x) in pairs([0, 1, 3, 2]));
     init = (-1, Inf, -1, -Inf)
 ) do (imin, xmin, imax, xmax), (i1, x1, i2, x2)
@@ -661,7 +661,7 @@ then compose an efficient parallel histogram operation:
 using BangBang: mergewith!!
 using MicroCollections: SingletonDict
 
-f2 = ThreadsX.mapreduce(x -> SingletonDict(x => 1), mergewith!!(+), str)
+f2 = Folds.mapreduce(x -> SingletonDict(x => 1), mergewith!!(+), str)
 @assert f1 == f2
 ```
 
@@ -784,7 +784,7 @@ not have built-in reducing function support.  Although `@distributed`
 macro has reducing function support, it is limited to pre-defined
 functions and it is tedious to handle multiple variables.  Both of
 these macros only have simple static scheduler and lacks an option
-like `basesize` supported by FLoops.jl and ThreadsX.jl to tune load
+like `basesize` supported by FLoops.jl and Folds.jl to tune load
 balancing.  Furthermore, the code written with `@threads` cannot be
 reused for `@distributed` and vice versa.
 
@@ -793,7 +793,7 @@ reused for `@distributed` and vice versa.
 Hopefully, this tutorial covers a bare minimum for you to start
 writing data-parallel programs and the documentations of
 [FLoops.jl](https://github.com/JuliaFolds/FLoops.jl) and
-[ThreadsX.jl](https://github.com/tkf/ThreadsX.jl) are now a bit more
+[Folds.jl](https://github.com/JuliaFolds/Folds.jl) are now a bit more
 accessible.  These two libraries are based on the protocol designed
 for [Transducers.jl](https://github.com/JuliaFolds/Transducers.jl)
 which also contains various tools for data parallelism.
@@ -814,4 +814,6 @@ idea of custom reduction is useful in GPU computing when using
 `mapreduce` on
 [`CuArray`](https://juliagpu.gitlab.io/CUDA.jl/usage/array/).
 
-\note{Work in progress. TODO: Add more tutorials and how-to guides.}
+See also:
+
+* [Efficient and safe approaches to mutation in data parallelism](../mutations/)
