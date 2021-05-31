@@ -1,5 +1,5 @@
 # This file was generated, do not modify it. # hide
-(imin3, xmin3, imax3, xmax3) = ThreadsX.reduce(
+(imin3, xmin3, imax3, xmax3) = Folds.reduce(
     ((i, x, i, x) for (i, x) in pairs([0, 1, 3, 2]));
     init = (-1, Inf, -1, -Inf)
 ) do (imin, xmin, imax, xmax), (i1, x1, i2, x2)

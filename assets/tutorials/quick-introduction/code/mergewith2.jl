@@ -2,5 +2,5 @@
 using BangBang: mergewith!!
 using MicroCollections: SingletonDict
 
-f2 = ThreadsX.mapreduce(x -> SingletonDict(x => 1), mergewith!!(+), str)
+f2 = Folds.mapreduce(x -> SingletonDict(x => 1), mergewith!!(+), str)
 @assert f1 == f2

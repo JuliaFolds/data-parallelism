@@ -1,4 +1,4 @@
-Dict{Char,Int64} with 11 entries:
+Dict{Char, Int64} with 11 entries:
   'f' => 5
   'd' => 6
   'e' => 5

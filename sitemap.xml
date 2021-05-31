@@ -3,55 +3,61 @@
 
 <url>
     <loc>https://juliafolds.github.io/data-parallelism/tutorials/quick-introduction/index.html</loc>
-    <lastmod>2021-03-15</lastmod>
+    <lastmod>2021-05-31</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+</url>
+<url>
+    <loc>https://juliafolds.github.io/data-parallelism/index.html</loc>
+    <lastmod>2021-05-31</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
 </url>
 <url>
     <loc>https://juliafolds.github.io/data-parallelism/explanation/libraries/index.html</loc>
-    <lastmod>2021-03-15</lastmod>
+    <lastmod>2021-05-31</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
 </url>
 <url>
     <loc>https://juliafolds.github.io/data-parallelism/404/index.html</loc>
-    <lastmod>2021-03-15</lastmod>
+    <lastmod>2021-05-31</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
 </url>
 <url>
-    <loc>https://juliafolds.github.io/data-parallelism/howto/index.html</loc>
-    <lastmod>2021-03-15</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.5</priority>
-</url>
-<url>
-    <loc>https://juliafolds.github.io/data-parallelism/explanation/index.html</loc>
-    <lastmod>2021-03-15</lastmod>
+    <loc>https://juliafolds.github.io/data-parallelism/tutorials/mutations/index.html</loc>
+    <lastmod>2021-05-31</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
 </url>
 <url>
     <loc>https://juliafolds.github.io/data-parallelism/howto/faq/index.html</loc>
-    <lastmod>2021-03-15</lastmod>
+    <lastmod>2021-05-31</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
 </url>
 <url>
-    <loc>https://juliafolds.github.io/data-parallelism/reference/index.html</loc>
-    <lastmod>2021-03-15</lastmod>
+    <loc>https://juliafolds.github.io/data-parallelism/tutorials/index/</loc>
+    <lastmod>2021-05-31</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
 </url>
 <url>
-    <loc>https://juliafolds.github.io/data-parallelism/tutorials/index.html</loc>
-    <lastmod>2021-03-15</lastmod>
+    <loc>https://juliafolds.github.io/data-parallelism/howto/index/</loc>
+    <lastmod>2021-05-31</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
 </url>
 <url>
-    <loc>https://juliafolds.github.io/data-parallelism/index/</loc>
-    <lastmod>2021-03-15</lastmod>
+    <loc>https://juliafolds.github.io/data-parallelism/reference/index/</loc>
+    <lastmod>2021-05-31</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+</url>
+<url>
+    <loc>https://juliafolds.github.io/data-parallelism/explanation/index/</loc>
+    <lastmod>2021-05-31</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
 </url>

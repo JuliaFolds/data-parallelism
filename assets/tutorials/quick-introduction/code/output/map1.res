@@ -1,4 +1,4 @@
-9-element Array{String,1}:
+9-element Vector{String}:
  "1a"
  "2b"
  "3c"
