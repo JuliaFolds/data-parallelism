@@ -20,7 +20,7 @@ let root = @__DIR__
     firsts = Dict(
         "tutorials" => [
             "quick-introduction.md",
-            "mutation.md",
+            "mutations.md",
         ],
     )
     external = Dict(
