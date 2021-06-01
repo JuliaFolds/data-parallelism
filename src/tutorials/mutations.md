@@ -246,13 +246,16 @@ in all JuliaFolds packages.  Furthermore, this style allows us to replace
 [`BangBang.append!!`](https://juliafolds.github.io/BangBang.jl/stable/#BangBang.append!!)
 which is very useful for collecting elements when their type cannot be
 determined or hard to do so *a priori*. For lack of better words, let us call it
-*ownership-passing style* (a non-standard terminology). This is because the
+*ownership-passing style*[^linearupdate] (a non-standard terminology). This is
+*because the
 ownership of `dest` in `dest′ = append!(dest, src)` is first transferred to
 `append!` which then it is transferred back to the caller as the return value
 `dest′`.
 
 Note that there is a subtlety when it comes to the ownership of the second
 argument. See the discussion [below](#ownership-passing-style-second-argument).
+
+[^linearupdate]: In [Scheme Requests for Implementation (SRFI) 1](https://srfi.schemers.org/srfi-1/srfi-1.html#LinearUpdateProcedures), this is called *linear update* which in turn is taken from the [linear type system](https://en.wikipedia.org/wiki/Substructural_type_system).  This type of operations is called *recycling* operations in [Practical Common Lisp](https://gigamonkeys.com/book/they-called-it-lisp-for-a-reason-list-processing.html#destructive-operations).
 
 #### `@reduce() do` example
 
