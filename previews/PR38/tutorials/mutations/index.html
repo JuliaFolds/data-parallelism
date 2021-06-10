@@ -1,0 +1,594 @@
+<!doctype html> <html lang=en > <meta charset=UTF-8 > <meta name=viewport  content="width=device-width, initial-scale=1"> <link rel=stylesheet  href="/data-parallelism/previews/PR38/libs/highlight/github.min.css"> <link rel=stylesheet  href="/data-parallelism/previews/PR38/css/franklin.css"> <link rel=stylesheet  href="/data-parallelism/previews/PR38/css/basic.css"> <link rel=icon  href="/data-parallelism/previews/PR38/assets/juliafolds-logo.ico"> <title>Efficient and safe approaches to mutation in data parallelism</title> <header> <div class=blog-name ><a href="/data-parallelism/previews/PR38/">Data-parallel Julia</a></div> <nav> <!-- <ul> <li><a href="/data-parallelism/previews/PR38/">Home</a> <li><a href="/data-parallelism/previews/PR38/menu1/">Code blocks</a> <li><a href="/data-parallelism/previews/PR38/menu2/">More goodies</a> <li><a href="/data-parallelism/previews/PR38/menu3/">Tags</a> </ul> --> <a href="https://github.com/JuliaFolds/data-parallelism/blob/master/src/tutorials/mutations.md"> <img class=github-edit-small  src="https://img.shields.io/badge/-Edit-green?logo=github&style=social"> <img class=github-edit-big  src="https://img.shields.io/badge/source-Suggest%20Edit-green?logo=github&style=social"> </a> <!-- <img src="/data-parallelism/previews/PR38/assets/hamburger.svg" id=menu-icon > --> </nav> </header> <div class=franklin-content ><h1 id=efficient_and_safe_approaches_to_mutation_in_data_parallelism ><a href="#efficient_and_safe_approaches_to_mutation_in_data_parallelism" class=header-anchor >Efficient and safe approaches to mutation in data parallelism</a></h1> <p>As discussed in <a href="../quick-introduction">a quick introduction to data parallelism</a>, data parallel style lets us write fast, portable, and generic parallel programs. One of the main focuses was to unlearn the &quot;sequential idiom&quot; that accumulates the result into mutable state. However, mutable state is sometimes preferred for efficiency. After all, a fast parallel program is typically a composition of fast sequential programs. Furthermore, managing mutable states is sometimes unavoidable for interoperability with libraries preferring or requiring mutation-based API. However, sharing mutable state is almost always a bad idea. Naively doing so likely results in <a href="https://en.wikipedia.org/wiki/Data_race">data races</a> and hence programs with <a href="https://en.wikipedia.org/wiki/Undefined_behavior">undefined behaviors</a>. Although low-level concurrency APIs such as locks and atomics can be used for writing &#40;typically&#41; <em>inefficient</em> but technically correct programs, a better approach is to use single-owner local mutable state <sup id="fnref:concurrency"><a href="#fndef:concurrency" class=fnref >[1]</a></sup>. In particular, we will see that unlearning sequential idiom was worth the effort since it points us to what we call <a href="#ownership-passing-style">ownership-passing style</a> that can be used to construct mutation-based parallel reduction from mutation-free &#40;&quot;purely functional&quot;&#41; reduction <em>as an optimization</em>.</p> <p>This tutorial provides an overview of the mutable object handling in data-parallel Julia programs <sup id="fnref:threadid"><a href="#fndef:threadid" class=fnref >[2]</a></sup>. It also discusses the effect and analysis of <a href="https://en.wikipedia.org/wiki/False_sharing">false sharing</a> which is a major performance pitfall when using in-place operations in a parallel program.</p> <p><table class=fndef  id="fndef:concurrency"> <tr> <td class=fndef-backref ><a href="#fnref:concurrency">[1]</a> <td class=fndef-content >Locks and atomics are important building blocks for concurrent programming and <a href="https://en.wikipedia.org/wiki/Non-blocking_algorithm">non-blocking algorithms and data structures</a> are very useful for high-performance applications. Although these aspects become non-negligible for squeezing out the &quot;last bits&quot; of the performance, here, we focus on how to construct parallel programs independent of how the synchronizations and scheduling are managed. This is the key for writing portable and correct parallel programs. See also: <a href="https://blog.golang.org/waza-talk">concurrency is not parallelism</a>. </table> <table class=fndef  id="fndef:threadid"> <tr> <td class=fndef-backref ><a href="#fnref:threadid">[2]</a> <td class=fndef-content >If you are familiar with the approach using <code>threadid</code> and wonder why it is not discussed here, take a look at <a href="https://juliafolds.github.io/FLoops.jl/dev/explanation/faq/#faq-state-threadid">What is the difference of <code>@reduce</code> and <code>@init</code> to the approach using <code>state&#91;threadid&#40;&#41;&#93;</code>? · FAQ · FLoops</a>. </table> </p> <div class=franklin-toc ><ol><li><a href="#example_multiplying_and_adding_matrices">Example: multiplying and adding matrices</a><ol><li><a href="#advanced_fusing_multiplication_and_addition_in_base_cases">Advanced: fusing multiplication and addition in base cases</a></ol><li><a href="#categorizing_mutation_use-cases">Categorizing mutation use-cases</a><li><a href="#filling_outputs">Filling outputs</a><ol><li><a href="#pitfalls_with_filling_pre-allocated_outputs">Pitfalls with filling pre-allocated outputs</a></ol><li><a href="#in-place_reductions">In-place reductions</a><ol><li><a href="#flexible_reduction_with_floopsreduce">Flexible reduction with <code>FLoops.@reduce</code></a><ol><li><a href="#reduceacc_opinit_input_example"><code>@reduce&#40;acc &#61; op&#40;init, input&#41;&#41;</code> example</a><li><a href="#ownership-passing_style">Ownership-passing style</a><li><a href="#reduce_do_example"><code>@reduce&#40;&#41; do</code> example</a><li><a href="#general_form_of_reduce_do_syntax">General form of <code>@reduce&#40;&#41; do</code> syntax</a><li><a href="#ownership-passing_style_second_argument">Ownership-passing style: second argument</a></ol><li><a href="#initializing_mutable_accumulator_using_transducersoninit">Initializing mutable accumulator using <code>Transducers.OnInit</code></a><li><a href="#combining_containers">Combining containers</a><li><a href="#onlinestats"><code>OnlineStats</code></a><li><a href="#pitfalls_with_mutable_reduction_states">Pitfalls with mutable reduction states</a></ol><li><a href="#mutable_temporary_objects_private_variables">Mutable temporary objects &#40;private variables&#41;</a><li><a href="#accidental_mutations">Accidental mutations</a><li><a href="#advancedperformance_false_sharing">Advanced/Performance: False sharing</a><ol><li><a href="#analyzing_false_sharing_using_perf_c2c">Analyzing false sharing using <code>perf c2c</code></a></ol><li><a href="#advanced_adjoining_trick">Advanced: adjoining trick</a></ol></div> <a id=sum-mul-zip  class=anchor ></a> <h2 id=example_multiplying_and_adding_matrices ><a href="#example_multiplying_and_adding_matrices" class=header-anchor >Example: multiplying and adding matrices</a></h2> <div class=note ><div class=title >💡 Note</div> <div class=content >This section can be skipped. It is a quick tour on &quot;practical&quot; Julia code that uses parallel loop and manipulates mutable objects. It does not explain all the concepts in order. The explanations in the <a href="#categorization">next sections</a> take more bottom-up approach.</div></div> <p>As a starting point, let us consider the following program that computes a sum of products of matrices: <sup id="fnref:einsum"><a href="#fndef:einsum" class=fnref >[3]</a></sup></p> <pre><code class=language-julia >N &#61; 40
+M &#61; 1000
+As &#61; &#91;randn&#40;N, N&#41; for _ in 1:M&#93;
+Bs &#61; &#91;randn&#40;N, N&#41; for _ in 1:M&#93;
+sum&#40;A * B for &#40;A, B&#41; in zip&#40;As, Bs&#41;&#41;</code></pre> <p><table class=fndef  id="fndef:einsum"> <tr> <td class=fndef-backref ><a href="#fnref:einsum">[3]</a> <td class=fndef-content >If you can store the inputs as <code>AbstractArray&#123;T,3&#125;</code>s, it may be better to use higher-level data parallel libraries such as <a href="https://github.com/mcabbott/Tullio.jl">Tullio.jl</a> and <a href="https://github.com/Jutho/TensorOperations.jl">TensorOperations.jl</a>. </table> As explained in the <a href="../quick-introduction">quick introduction</a>, this program can easily be translated to a parallel program, e.g., by using Folds.jl:</p> <pre><code class=language-julia >using Folds
+Folds.sum&#40;A * B for &#40;A, B&#41; in zip&#40;As, Bs&#41;&#41;</code></pre> <p>This program is suboptimal since it allocates temporary arrays for the multiplications and summations. To clarify the source of allocations, let us translate the above code using <code>@floop</code> &#40;see <a href="#floops-reduce"><code>FLoops.@reduce</code></a> below for how it works&#41;:</p> <pre><code class=language-julia >using FLoops
+
+@floop for &#40;A, B&#41; in zip&#40;As, Bs&#41;
+    C &#61; A * B             # allocation for each iteration
+    @reduce&#40;&#41; do &#40;S &#61; zero&#40;C&#41;; C&#41;
+        S &#61; S &#43; C         # allocation for each iteration
+    end
+end</code></pre> <p>We can eliminate the allocation of <code>A * B</code> by using <code>LinearAlgebra.mul&#33;</code> and the allocation of <code>S &#43; C</code> by using the inplace broadcasting updates <code>S .&#43;&#61; C</code>. However, we cannot allocate arrays <code>C</code> and <code>S</code> outside <code>@floop</code> because then they will be shared across multiple tasks &#40;and causes data races&#41;. Fortunately, we can use <code>@init</code> macro for allocating &quot;private&quot; temporary array <code>C</code> and the &quot;init clause&quot; of <code>@reduce</code> macro &#40;i.e., <code>zero&#40;C&#41;</code> in the code below&#41;:</p> <pre><code class=language-julia >using LinearAlgebra: mul&#33;
+
+@floop for &#40;A, B&#41; in zip&#40;As, Bs&#41;
+    @init C &#61; similar&#40;A&#41;
+    mul&#33;&#40;C, A, B&#41;
+    @reduce&#40;&#41; do &#40;S &#61; zero&#40;C&#41;; C&#41;
+        S .&#43;&#61; C
+    end
+end</code></pre> <p>In above code, <code>similar&#40;A&#41;</code> and <code>zero&#40;C&#41;</code> are executed only once in each task and their results are re-used. The result <code>S₁</code> from task 1 and result <code>S₂</code> from task 2 are combined using the reduction specified by <code>@reduce&#40;&#41;</code>; i.e., <code>S₁ .&#43;&#61; S₂</code>.</p> <a id=fused-mul  class=anchor ></a> <h3 id=advanced_fusing_multiplication_and_addition_in_base_cases ><a href="#advanced_fusing_multiplication_and_addition_in_base_cases" class=header-anchor >Advanced: fusing multiplication and addition in base cases</a></h3> <p>The previous program provides a decent performance for a straightforward piece of code. However, we can further optimize the program by using fused multiply-add provided by the 5-argument method <code>mul&#33;&#40;C, A, B, α, β&#41;</code>. We can use this method for the base cases &#40;where we have matrices <code>A</code> and <code>B</code>&#41; but we need to use <code>.&#43;&#61;</code> when combining the base cases. This can be done by dispatching on the type of the second argument of <code>@reduce</code>:</p> <pre><code class=language-julia >using FLoops
+using LinearAlgebra: mul&#33;
+
+@floop for &#40;A, B&#41; in zip&#40;As, Bs&#41;
+    C &#61; &#40;A, B&#41;
+    @reduce&#40;&#41; do &#40;S &#61; zero&#40;A&#41;; C&#41;
+        if C isa Tuple  # base case
+            mul&#33;&#40;S, C&#91;1&#93;, C&#91;2&#93;, 1, 1&#41;
+        else            # combining base cases
+            S .&#43;&#61; C
+        end
+    end
+end</code></pre> <a id=categorization  class=anchor ></a> <h2 id=categorizing_mutation_use-cases ><a href="#categorizing_mutation_use-cases" class=header-anchor >Categorizing mutation use-cases</a></h2> <p>Let&#39;s discuss different kinds of mutability in parallel programs separately:</p> <ol> <li><p>Filling outputs</p> <li><p>In-place reductions</p> <li><p>Mutable temporary objects &#40;private variables&#41;</p> </ol> <h2 id=filling_outputs ><a href="#filling_outputs" class=header-anchor >Filling outputs</a></h2> <p>Perhaps the simplest use of mutation in parallel program is filling pre-allocated output.</p> <pre><code class=language-julia >using FLoops
+
+xs &#61; 1:2:100
+ys &#61; similar&#40;xs&#41;  # output
+@floop ThreadedEx&#40;&#41; for &#40;i, x&#41; in pairs&#40;xs&#41;
+    @inbounds ys&#91;i&#93; &#61; gcd&#40;42, x&#41;
+end</code></pre> <p>This loop can also be written as <code>Threads.@threads</code>:</p> <pre><code class=language-julia >xs &#61; 1:2:100
+ys &#61; similar&#40;xs&#41;  # output
+Threads.@threads for i in eachindex&#40;xs, ys&#41;
+    @inbounds ys&#91;i&#93; &#61; gcd&#40;42, xs&#91;i&#93;&#41;
+end</code></pre> <p>A more succinct approach is <code>Folds.map&#33;</code>:</p> <pre><code class=language-julia >using Folds
+
+xs &#61; 1:2:100
+ys &#61; similar&#40;xs&#41;  # output
+Folds.map&#33;&#40;x -&gt; gcd&#40;42, x&#41;, ys, xs&#41;</code></pre> <a id=filling-output-pitfalls  class=anchor ></a> <h3 id=pitfalls_with_filling_pre-allocated_outputs ><a href="#pitfalls_with_filling_pre-allocated_outputs" class=header-anchor >Pitfalls with filling pre-allocated outputs</a></h3> <p>This type of parallel mutation relies on that different tasks mutate disjoint set of memory locations. The correctness of the above code examples rely on that <code>ys</code> is, e.g., an <code>Array</code>. That is to say, updating each element <code>ys&#91;i&#93;</code> only updates data at disjoint memory location for different index <code>i</code> and does not depend on the memory locations updated by other tasks. However, it is not the case for more complex data collections such as</p> <ul> <li><p>Certain <code>view</code>s such as <code>ys &#61; view&#40;&#91;0&#93;, &#91;1, 1, 1, 1&#93;&#41;</code>. Mutating <code>ys&#91;1&#93;</code> mutates <code>ys&#91;2&#93;</code>, <code>ys&#91;3&#93;</code>, and <code>ys&#91;4&#93;</code>.</p> <li><p><code>BitArray</code>: <code>ys&#91;i&#93;</code> and <code>ys&#91;i&#43;1&#93;</code> may be stored in a single <code>UInt64</code>.</p> <li><p><code>SparseMatrixCSC</code>, <code>SparseVector</code>: Assigning a value to a previously zero index requires moving data for other non-zero elements internally.</p> <li><p><code>Dict</code>: inserting a new key-vale pair mutates memory locations shared by other tasks.</p> </ul> <p>These are all examples of <a href="https://en.wikipedia.org/wiki/Race_condition">data races</a>: there are multiple unsynchronized concurrent accesses and at least one of the accesses is write.</p> <p>On the other hand, non-<code>Array</code> types can also be used safely. For example, <code>ys &#61; view&#40;::Vector, 1:50&#41;</code> can be used instead of a <code>Vector</code> since <code>ys&#91;i&#93;</code> and <code>ys&#91;j&#93;</code> &#40;<code>i ≠ j</code>&#41; refer to disjoint memory locations.</p> <h2 id=in-place_reductions ><a href="#in-place_reductions" class=header-anchor >In-place reductions</a></h2> <p>Many sequential programs compute the result by mutating some states; e.g., appending elements to a vector. This approach is very efficient and is useful as a base case of parallel programs. There are several approaches to safely use such sequential reductions in parallel programs.</p> <a id=floops-reduce  class=anchor ></a> <h3 id=flexible_reduction_with_floopsreduce ><a href="#flexible_reduction_with_floopsreduce" class=header-anchor >Flexible reduction with <code>FLoops.@reduce</code></a></h3> <h4 id=reduceacc_opinit_input_example ><a href="#reduceacc_opinit_input_example" class=header-anchor ><code>@reduce&#40;acc &#61; op&#40;init, input&#41;&#41;</code> example</a></h4> <p>FLoops.jl is a package for a flexible set of syntax sugar for <a href="https://juliafolds.github.io/FLoops.jl/dev/tutorials/parallel/">constructing parallel loops</a>. In particular, we can use <code>@reduce&#40;acc &#61; op&#40;init, input&#41;&#41;</code> syntax for writing parallel reduction:</p> <pre><code class=language-julia >using FLoops
+
+@floop for x in 1:10
+    if isodd&#40;x&#41;
+        @reduce&#40;odds &#61; append&#33;&#40;Int&#91;&#93;, &#40;x,&#41;&#41;&#41;
+    else
+        @reduce&#40;evens &#61; append&#33;&#40;Int&#91;&#93;, &#40;x,&#41;&#41;&#41;
+    end
+end</code></pre> <p>Here, we use <code>@reduce</code> with the following syntax</p> <pre><code class=language-julia ># @reduce&#40;&#36;acc &#61; &#36;op&#40;    &#36;init, &#36;input&#41;&#41;
+  @reduce&#40;odds &#61; append&#33;&#40;Int&#91;&#93;, &#40;x,&#41;&#41;&#41;
+#         ~~~~   ~~~~~~~ ~~~~~  ~~~~
+#          |       |      |      |
+#          |       |      |     Input to reduction
+#          |       |      |
+#          |       |   Initialization of the accumulator
+#          |       |
+#          |      Reducing function &#40;aka binary operator, monoid&#41;
+#          |
+#   Accumulator &#40;result of the reduction&#41;</code></pre> <p>The <code>@reduce</code> macro is used for generating two types of code &#40;function&#41;. First, it is used for generating the base case code. The base case code is generated by &#40;roughly speaking&#41;:</p> <ol> <li><p>remove <code>@reduce&#40;</code> and the corresponding <code>&#41;</code></p> <li><p>replace <code>&#36;init</code> in the first argument with <code>&#36;acc</code></p> <li><p>put <code>&#36;acc &#61; &#36;init</code> in front of the loop</p> </ol> <p>i.e.,</p> <pre><code class=language-julia >function basecase&#40;chunk&#41;
+    odds &#61; Int&#91;&#93;  # init
+    evens &#61; Int&#91;&#93;  # init
+    for x in chunk
+        if isodd&#40;x&#41;
+            odds &#61; append&#33;&#40;odds, &#40;x,&#41;&#41;
+        else
+            evens &#61; append&#33;&#40;evens, &#40;x,&#41;&#41;
+        end
+    end
+    return &#40;odds, evens&#41;
+end</code></pre> <p>Input collection to <code>@floop for</code> loop is split into chunks first<sup id="fnref:dac"><a href="#fndef:dac" class=fnref >[4]</a></sup>. For example, if <code>julia</code> is started with <code>--threads&#61;2</code>, it is split into two chunks by default:</p> <pre><code class=language-julia >chunk_left &#61; 1:5
+chunk_right &#61; 6:10
+@assert vcat&#40;chunk_left, chunk_right&#41; &#61;&#61; 1:10  # original input</code></pre> <p>Each chunk is then processed by &#40;a function equivalent to&#41; the <code>basecase</code> function above:</p> <pre><code class=language-julia >odds_left, evens_left &#61; basecase&#40;chunk_left&#41;
+odds_right, evens_right &#61; basecase&#40;chunk_right&#41;
+
+@assert odds_left &#61;&#61; 1:2:5
+@assert evens_left &#61;&#61; 2:2:5
+@assert odds_right &#61;&#61; 7:2:10
+@assert evens_right &#61;&#61; 6:2:10</code></pre> <p>The function <code>append&#33;</code> specified by <code>@reduce</code> is used also for merging these base case results:</p> <pre><code class=language-julia >odds &#61; append&#33;&#40;odds_left, odds_right&#41;
+evens &#61; append&#33;&#40;evens_left, evens_right&#41;
+
+@assert odds &#61;&#61; 1:2:10
+@assert evens &#61;&#61; 2:2:10</code></pre> <p>When there are more than two chunks, the reduction results are merged pair-wise &#40;default <sup id="fnref:dac"><a href="#fndef:dac" class=fnref >[4]</a></sup>&#41; or sequentially, depending on the <a href="https://juliafolds.github.io/Transducers.jl/dev/explanation/glossary/#glossary-executor">executor</a> used.</p> <p><table class=fndef  id="fndef:dac"> <tr> <td class=fndef-backref ><a href="#fnref:dac">[4]</a> <td class=fndef-content >By default, JuliaFolds packages use divide-and-conquer approach for scheduling parallel loops. Roughly speaking, it &quot;fuses&quot; splitting of the collections and scheduling the parallel tasks. It also &quot;fuses&quot; the merges of reduction results and joining of the parallel tasks. This increases <a href="https://www.cprogramming.com/parallelism.html">parallelism</a> of the entire computation compared to more naive sequential scheduling. However, FLoops.jl itself is just a syntax sugar for defining parallel reduction and completely decoupled from <em>how</em> these reductions are computed. The exact execution strategy can be determined by passing the <a href="https://juliafolds.github.io/Transducers.jl/dev/explanation/glossary/#glossary-executor">executor</a>. </table> <a id=ownership-passing-style  class=anchor ></a></p> <h4 id=ownership-passing_style ><a href="#ownership-passing_style" class=header-anchor >Ownership-passing style</a></h4> <p>Note that the above parallel reduction does not incur data races because</p> <ol> <li><p>The first arguments to <code>append&#33;</code> are created for each base case,</p> <li><p><code>append&#33;</code> mutates the first argument and returns it, and</p> <li><p><code>append&#33;</code> is used in such a way that the first argument &#40;more specifically its state at which <code>append&#33;</code> is called&#41; is never used.</p> </ol> <p>Therefore, we can treat <code>append&#33;</code><em>as if</em> it were a pure function for the purpose of understanding this parallel reduction. In other words, we never observe the side-effect of <code>append&#33;</code> through the argument. It&#39;s easy to see that the above program is correct even if we replace <code>append&#33;</code> with its mutation-free &quot;equivalent&quot; <sup id="fnref:vcattuple"><a href="#fndef:vcattuple" class=fnref >[5]</a></sup> function <code>vcat</code>:</p> <p><table class=fndef  id="fndef:vcattuple"> <tr> <td class=fndef-backref ><a href="#fnref:vcattuple">[5]</a> <td class=fndef-content >Note that the equivalence is not quite exact. We replace <code>&#40;x,&#41;</code> with <code>&#91;x&#93;</code> since <code>append&#33;</code> and <code>vcat</code> behave differently when the input is non an array. </table> <pre><code class=language-julia >using FLoops
+
+@floop for x in 1:10
+    if isodd&#40;x&#41;
+        @reduce&#40;odds &#61; vcat&#40;Int&#91;&#93;, &#91;x&#93;&#41;&#41;
+    else
+        @reduce&#40;evens &#61; vcat&#40;Int&#91;&#93;, &#91;x&#93;&#41;&#41;
+    end
+end</code></pre></p> <p>This observation points to a powerful recipe for constructing efficient parallel reduction:</p> <ol> <li><p>Write down parallel reduction without using mutation.</p> <li><p>Re-write the reducing function &#40;the body of <code>@reduce</code> or the binary function <code>op</code> passed to <code>reduce</code> etc.; i.e., monoid&#41; by mutating the first argument.</p> <li><p>Make sure that subsequent iterations do not mutate the second argument &#40;See the discussion <a href="#ownership-passing-style-second-argument">below</a>&#41;</p> </ol> <p>It can be used for general reducing functions &#40;<code>op</code>&#41; specified via <code>@reduce</code> macro as well as the functions passed to higher-order functions such as <code>reduce</code> in all JuliaFolds packages. Furthermore, this style allows us to replace <code>append&#33;</code> with <a href="https://juliafolds.github.io/BangBang.jl/stable/#BangBang.append&#33;&#33;"><code>BangBang.append&#33;&#33;</code></a> which is very useful for collecting elements when their type cannot be determined or hard to do so <em>a priori</em>. For lack of better words, let us call it <em>ownership-passing style</em><sup id="fnref:linearupdate"><a href="#fndef:linearupdate" class=fnref >[6]</a></sup> &#40;a non-standard terminology&#41;. This is *because the ownership of <code>dest</code> in <code>dest′ &#61; append&#33;&#40;dest, src&#41;</code> is first transferred to <code>append&#33;</code> which then it is transferred back to the caller as the return value <code>dest′</code>.</p> <p>Note that there is a subtlety when it comes to the ownership of the second argument. See the discussion <a href="#ownership-passing-style-second-argument">below</a>.</p> <table class=fndef  id="fndef:linearupdate"> <tr> <td class=fndef-backref ><a href="#fnref:linearupdate">[6]</a> <td class=fndef-content >In <a href="https://srfi.schemers.org/srfi-1/srfi-1.html#LinearUpdateProcedures">Scheme Requests for Implementation &#40;SRFI&#41; 1</a>, this is called <em>linear update</em> which in turn is taken from the <a href="https://en.wikipedia.org/wiki/Substructural_type_system">linear type system</a>. This type of operations is called <em>recycling</em> operations in <a href="https://gigamonkeys.com/book/they-called-it-lisp-for-a-reason-list-processing.html#destructive-operations">Practical Common Lisp</a>. </table> <h4 id=reduce_do_example ><a href="#reduce_do_example" class=header-anchor ><code>@reduce&#40;&#41; do</code> example</a></h4> <p><code>@reduce&#40;&#41; do</code> syntax can be used for defining a more flexible reduction &#40;see also the <a href="#sum-mul-zip">example section</a> above&#41;. Here is a simple example</p> <pre><code class=language-julia >@floop for n in 1:10
+    xs &#61; &#91;n, 2n, 3n&#93;
+    @reduce&#40;&#41; do &#40;ys &#61; zeros&#40;Int, 3&#41;; xs&#41;
+#                 ~~~~~~~~~~~~~~~~~~
+#                  initializer
+        ys .&#43;&#61; xs
+#       ~~~~~~~~~
+#       reduce body
+    end
+end
+
+@assert ys &#61;&#61; mapreduce&#40;n -&gt; &#91;n, 2n, 3n&#93;, .&#43;, 1:10&#41;</code></pre> <p>The base case code is equivalent to the loop transformed by:</p> <ol> <li><p>remove <code>@reduce&#40;&#41; do &#40;&#36;acc₁ &#61; &#36;init₁; &#36;input₁&#41;, …, &#40;&#36;accₙ &#61; &#36;initₙ; &#36;inputₙ&#41;</code> and the corresponding <code>end</code> and keep the reduce body</p> <li><p>put the initializers <code>&#36;accᵢ &#61; &#36;initᵢ</code> in front of the loop</p> </ol> <p>i.e.,</p> <pre><code class=language-julia >function basecase&#40;chunk&#41;
+    ys &#61; zeros&#40;Int, 3&#41;         # initializer
+    for n in chunk
+        xs &#61; &#91;n, 2n, 3n&#93;
+        ys .&#43;&#61; xs              # reduce body
+    end
+    return ys
+end</code></pre> <p>Similar to <code>odds</code>-<code>evens</code> example above, the input collection is chunked and then processed in multiple tasks:</p> <pre><code class=language-julia >chunk_left &#61; 1:5
+chunk_right &#61; 6:10
+
+ys_left &#61; basecase&#40;chunk_left&#41;
+ys_right &#61; basecase&#40;chunk_right&#41;</code></pre> <p>Finally, the base case results are merged by using the body of the <code>@reduce&#40;&#41; do</code> block &#40;here, just <code>.&#43;&#61;</code>&#41;:</p> <pre><code class=language-julia >ys_left .&#43;&#61; ys_right
+ys &#61; ys_left
+
+@assert ys &#61;&#61; mapreduce&#40;n -&gt; &#91;n, 2n, 3n&#93;, .&#43;, 1:10&#41;</code></pre> <h4 id=general_form_of_reduce_do_syntax ><a href="#general_form_of_reduce_do_syntax" class=header-anchor >General form of <code>@reduce&#40;&#41; do</code> syntax</a></h4> <p>In general, <code>@reduce&#40;&#41; do</code> takes the following form:</p> <pre><code class=language-julia >@reduce&#40;&#41; do &#40;&#36;acc₁ &#61; &#36;init₁; &#36;input₁&#41;,
+             &#40;&#36;acc₂ &#61; &#36;init₂; &#36;input₂&#41;,
+              …
+             &#40;&#36;accₙ &#61; &#36;initₙ; &#36;inputₙ&#41;
+#              ~~~~    ~~~~~   ~~~~~~
+#               |       |        |
+#               |       |      Input to reduction &#40;computed outside &#96;@reduce&#96;&#41;
+#               |       |
+#               |   Initialization of the accumulator
+#               |
+#             Accumulator &#40;result of the reduction&#41;
+    &#36;body
+#   ~~~~~
+#   Reducing function &#40;aka binary operator, monoid&#41;
+end</code></pre> <p>This expression is used to generate the following function <code>op</code> for merging two set of <code>accᵢ</code>s from two tasks</p> <pre><code class=language-julia >function op&#40;accs_left, accs_right&#41;
+    &#40;&#36;acc₁, &#36;acc₂, …, &#36;accₙ&#41; &#61; accs_left
+    &#40;&#36;input₁, &#36;input₂, …, &#36;inputₙ&#41; &#61; accs_right
+    &#36;body
+    return &#40;&#36;acc₁, &#36;acc₂, …, &#36;accₙ&#41;
+end</code></pre> <p>which is invoked as</p> <pre><code class=language-julia >accs &#61; op&#40;accs_left, accs_right&#41;</code></pre>
+<p>to merge the results of &quot;left&quot; and &quot;right&quot; tasks.  When using <code>@reduce&#40;&#36;acc &#61;
+&#36;op&#40;&#36;init, &#36;input&#41;&#41;</code> syntax, the function <code>&#36;op</code> is used as-is.</p>
+<p>Note that the roles of <code>&#36;accᵢ</code>s and <code>&#36;inputᵢ</code>s are almost &quot;symmetric&quot; in the sense that <code>&#36;body</code> has to be able to handle any value of <code>&#36;accᵢ</code> provided as a <code>&#36;inputᵢ</code>.</p>
+<p>The reducing function must be associative; i.e., the results of</p>
+<pre><code class=language-julia >op&#40;op&#40;a, b&#41;, c&#41;</code></pre>
+<p>and</p>
+<pre><code class=language-julia >op&#40;a, op&#40;b, c&#41;&#41;</code></pre>
+<p>must be equivalent in some sense &#40;e.g., <code>isapprox</code> may be enough in some cases; the result of <code>@floop</code> is still deterministic unless a nondeterministic executor is specified or the input collection is unordered&#41;.</p>
+<p>Furthermore, since the function <code>op</code> has to be executable outside the scope of the sequential loop, it must not use variables whose scope is inside of <code>@floop</code> but outside of <code>@reduce</code>.  That is to say, it must only access variables <code>&#36;accᵢ</code>s and <code>&#36;inputᵢ</code>s or the names defined outside <code>@floop</code>:</p>
+<pre><code class=language-julia >using SomeModule: f
+
+function example&#40;&#41;
+    ...
+    x &#61; ...
+    @floop for ...
+        y &#61; ...
+        z &#61; ...
+        @reduce&#40;&#41; do &#40;acc; y&#41;
+            acc   ✅ # accessible &#40;accumulator&#41;
+            f     ✅ # accessible &#40;global&#41;
+            x     ✅ # accessible &#40;defined outside @floop&#41;
+            y     ✅ # accessible &#40;passed as an input&#41;
+            z     ❌ # NOT accessible &#40;not passed as an input&#41;
+            ...
+        end
+    end
+    ...
+end</code></pre>
+<p>These requirements for associativity and variable scoping typically can be achieved by &quot;minimizing&quot; the computation done inside <code>@reduce</code>.  The following example is incorrect since the body of <code>@reduce</code> is doing an &quot;extra work&quot;:</p>
+<pre><code class=language-julia >@floop for n in 1:10
+    xs &#61; &#91;n, 2n, 3n&#93;
+    @reduce&#40;&#41; do &#40;ys &#61; zeros&#40;Int, 3&#41;; xs&#41;
+        ys .&#43;&#61; 2 .* xs  # INCORRECT
+    end
+end</code></pre>
+<p>A correct implementation is to move the computation <code>2 .* xs</code> out of <code>@reduce</code>.</p>
+<pre><code class=language-julia >@floop for n in 1:10
+    xs &#61; &#91;n, 2n, 3n&#93;
+    zs &#61; 2 .* xs  # CORRECT
+    @reduce&#40;&#41; do &#40;ys &#61; zeros&#40;Int, 3&#41;; zs&#41;
+        ys .&#43;&#61; zs
+    end
+end
+
+@assert ys &#61;&#61; mapreduce&#40;n -&gt; 2 .* &#91;n, 2n, 3n&#93;, .&#43;, 1:10&#41;</code></pre>
+<p>The allocation of temporary variables such as <code>zs</code> can be eliminated by using <a href="#private-variables">private variables &#40;see below&#41;</a>.  It is also possible to fuse the computation of <code>2 .* _</code> and <code>_ .&#43;&#61; _</code> if done carefully &#40;See the example above for <a href="#fused-mul">how to fuse computation only in the base case</a>&#41;.</p>
+<a id=ownership-passing-style-second-argument  class=anchor ></a>
+<h4 id=ownership-passing_style_second_argument ><a href="#ownership-passing_style_second_argument" class=header-anchor >Ownership-passing style: second argument</a></h4>
+<p>Consider the following program that computes sum of arrays</p>
+<pre><code class=language-julia >vectors &#61; Any&#91;&#91;n n^2; n^3 n^4&#93; for n in 1:100&#93;
+sum&#40;vectors&#41;</code></pre>
+<p>Since the element type of the input is unknown, we can&#39;t pre-compute the output array type. It may then be tempting to use the first input as the accumulator:</p>
+<pre><code class=language-julia >vectors &#61; Any&#91;&#91;n n^2; n^3 n^4&#93; for n in 1:100&#93;
+@floop for xs in vectors
+    @reduce&#40;&#41; do &#40;ys &#61; nothing; xs&#41;
+        if ys &#61;&#61;&#61; nothing
+            ys &#61; xs  # ❌ WRONG
+        else
+            ys .&#43;&#61; xs
+        end
+    end
+end
+
+@assert ys &#61;&#61;&#61; vectors&#91;1&#93;  # above loop mutated the input</code></pre>
+<p>However, as you can see in the <code>@assert</code> statement above, this loop mutated the first element <code>vectors&#91;1&#93;</code>. This is probably not a desirable outcome in many cases &#40;although it may not be problem in specific use cases&#41;. Thus, in general, we should assume that <em>the reducing function does not own second argument</em> when using the ownership-passing style. Therefore, we need to <em>copy</em> the second argument when using it as the accumulator.</p>
+<pre><code class=language-julia >vectors &#61; Any&#91;&#91;n n^2; n^3 n^4&#93; for n in 1:100&#93;
+@floop for xs in vectors
+    @reduce&#40;&#41; do &#40;ys &#61; nothing; xs&#41;
+        if ys &#61;&#61;&#61; nothing
+            ys &#61; copy&#40;xs&#41;  # ✅ CORRECT
+        else
+            ys .&#43;&#61; xs
+        end
+    end
+end
+
+@assert ys &#33;&#61;&#61; vectors&#91;1&#93;  # input not mutated</code></pre>
+<h3 id=initializing_mutable_accumulator_using_transducersoninit ><a href="#initializing_mutable_accumulator_using_transducersoninit" class=header-anchor >Initializing mutable accumulator using <code>Transducers.OnInit</code></a></h3>
+<p><a href="https://juliafolds.github.io/Transducers.jl/dev/reference/manual/#Transducers.OnInit"><code>Transducers.OnInit&#40;f&#41;</code></a> can be passed as <code>init</code> argument in many JuliaFolds API.  It calls the zero-argument function <code>f</code> that creates the accumulator for each base case:</p>
+<pre><code class=language-julia >using Folds
+using Transducers: OnInit
+ys &#61; Folds.mapreduce&#40;x -&gt; &#40;x, 2x, 3x&#41;, .&#43;, 1:10; init &#61; OnInit&#40;&#40;&#41; -&gt; &#91;0, 0, 0&#93;&#41;&#41;
+
+@assert ys &#61;&#61; &#91;sum&#40;1:10&#41;, 2sum&#40;1:10&#41;, 3sum&#40;1:10&#41;&#93;</code></pre>
+<h3 id=combining_containers ><a href="#combining_containers" class=header-anchor >Combining containers</a></h3>
+<p>When each iteration produce a container, there is usually a &quot;default&quot; way to combine all the containers produced. For basic containers such as vectors, sets and dictionaries, <code>Base</code> already define appropriate functions:</p>
+<table><tr><th align=right >Container<th align=right >Pure function<th align=right >In-place function<tr><td align=right >vector<td align=right ><code>vcat</code><td align=right ><code>append&#33;</code><tr><td align=right >set<td align=right ><code>union</code><td align=right ><code>union&#33;</code><tr><td align=right >dictionary<td align=right ><code>merge</code><td align=right ><code>merge&#33;</code><tr><td align=right ><td align=right ><code>mergewith&#40;op&#41;</code><td align=right ><code>mergewith&#33;&#40;op&#41;</code></table>
+<p>&#40;These are not the only associative operations on these containers.  For example, <code>union</code> works on vectors, too. <code>intersect</code> defines another associative operations on sets.&#41;</p>
+<p>The corresponding containers can be constructed in parallel by feeding sub-containers into these &quot;merging&quot; functions:</p>
+<pre><code class=language-julia >using Folds
+using Transducers: OnInit
+ys1 &#61; Folds.mapreduce&#40;x -&gt; &#91;x&#93;, append&#33;, 1:10; init &#61; OnInit&#40;&#40;&#41; -&gt; Int&#91;&#93;&#41;&#41;
+ys2 &#61; Folds.mapreduce&#40;x -&gt; Set&#40;&#91;x&#93;&#41;, union&#33;, 1:10; init &#61; OnInit&#40;Set&#123;Int&#125;&#41;&#41;
+ys3 &#61; Folds.mapreduce&#40;x -&gt; Dict&#40;x &#61;&gt; x^2&#41;, merge&#33;, 1:10; init &#61; OnInit&#40;Dict&#123;Int,Int&#125;&#41;&#41;
+ys4 &#61; Folds.mapreduce&#40;x -&gt; Dict&#40;isodd&#40;x&#41; &#61;&gt; 1&#41;, mergewith&#33;&#40;&#43;&#41;, 1:10; init &#61; OnInit&#40;Dict&#123;Bool,Int&#125;&#41;&#41;
+
+@assert ys1 &#61;&#61; 1:10
+@assert ys2 &#61;&#61; Set&#40;1:10&#41;
+@assert ys3 &#61;&#61; Dict&#40;x &#61;&gt; x^2 for x in 1:10&#41;
+@assert ys4 &#61;&#61; Dict&#40;false &#61;&gt; 5, true &#61;&gt; 5&#41;</code></pre>
+<p>However, it is suboptimal to heap-allocate these singleton containers &#40;containers with single element&#41;. We can use special singleton containers from MicroCollections.jl to avoid heap allocations. Another downside of the approach using functions such as <code>append&#33;</code> is that they require specifying element type before the reduction is started. This is sometimes impossible or very tedious. We can avoid it by using the <code>&#33;&#33;</code> functions from BangBang.jl.  For example, <code>BangBang.append&#33;&#33;&#40;ys, xs&#41;</code> may return a new array without mutating <code>ys</code> if the element type of <code>ys</code> is not appropriate for storing <code>xs</code>.  Thus, in the parallel reduction context, BangBang.jl functions can be used more like pure functions except that the objects passed as the first argument cannot be re-used again.</p>
+<pre><code class=language-julia >using Folds
+using MicroCollections
+using BangBang
+ys1 &#61; Folds.mapreduce&#40;x -&gt; SingletonVector&#40;&#40;x,&#41;&#41;, append&#33;&#33;, 1:10&#41;
+ys2 &#61; Folds.mapreduce&#40;x -&gt; SingletonSet&#40;&#40;x,&#41;&#41;, union&#33;&#33;, 1:10&#41;
+ys3 &#61; Folds.mapreduce&#40;x -&gt; SingletonDict&#40;x &#61;&gt; x^2&#41;, merge&#33;&#33;, 1:10&#41;
+ys4 &#61; Folds.mapreduce&#40;x -&gt; SingletonDict&#40;isodd&#40;x&#41; &#61;&gt; 1&#41;, mergewith&#33;&#33;&#40;&#43;&#41;, 1:10&#41;</code></pre>
+<p>Since these are common idioms, Folds.jl has shorthands for the first three cases:</p>
+<pre><code class=language-julia >using Folds
+ys1 &#61; Folds.collect&#40;1:10&#41;
+ys2 &#61; Folds.set&#40;1:10&#41;
+ys3 &#61; Folds.dict&#40;x &#61;&gt; x^2 for x in 1:10&#41;</code></pre>
+<h3 id=onlinestats ><a href="#onlinestats" class=header-anchor ><code>OnlineStats</code></a></h3>
+<p><a href="https://github.com/joshday/OnlineStats.jl">OnlineStats.jl</a> is a rich collection of composable single-pass algorithms for computing various statistics.  Although OnlineStats.jl itself only provides in-place operations, Transducers.jl defines a compatibility layer &#40;using <code>OnInit</code> etc.&#41; that treat mergeable <code>OnlineStat</code>s as monoids. <code>Folds.reduce</code> probably is the easiest API to use:</p>
+<pre><code class=language-julia >using OnlineStats
+using Folds
+Folds.reduce&#40;Mean&#40;&#41;, 1:10&#41;</code></pre>
+<pre><code class=plaintext >Mean: n=10 | value=5.5</code></pre>
+<p>We can also use <code>FLoops.@reduce</code> directly with OnlineStats.jl. The key point is to make the body of <code>@reduce</code> &quot;symmetric in type&quot;; i.e., pass <code>Mean</code> at both arguments:</p>
+<pre><code class=language-julia >using FLoops
+using OnlineStats
+
+@floop for x in 1:10
+    y &#61; 2x
+    m &#61; fit&#33;&#40;Mean&#40;&#41;, y&#41;
+    @reduce&#40;&#41; do &#40;acc &#61; Mean&#40;&#41;; m&#41;
+        merge&#33;&#40;acc, m&#41;
+    end
+end
+
+@assert acc &#61;&#61; fit&#33;&#40;Mean&#40;&#41;, 2:2:20&#41;</code></pre>
+<p>It is also possible to get rid of the intermediate <code>Mean</code> object by &quot;fusing&quot; <code>fit&#33;</code> and <code>merge&#33;</code> in the base case.  &#40;However, this optimization may not be required since the compiler is likely to optimize away the creation of intermediate <code>Mean</code> object <code>m</code>.&#41;</p>
+<pre><code class=language-julia >@floop for x in 1:10
+    y &#61; 2x
+    @reduce&#40;&#41; do &#40;acc &#61; Mean&#40;&#41;; y&#41;
+        if y isa OnlineStat
+            merge&#33;&#40;acc, y&#41;
+        else
+            fit&#33;&#40;acc, y&#41;
+        end
+    end
+end
+
+@assert acc &#61;&#61; fit&#33;&#40;Mean&#40;&#41;, 2:2:20&#41;</code></pre>
+<a id=reduce-pitfalls  class=anchor ></a>
+<h3 id=pitfalls_with_mutable_reduction_states ><a href="#pitfalls_with_mutable_reduction_states" class=header-anchor >Pitfalls with mutable reduction states</a></h3>
+<p>When using in-place reductions, mutable accumulators must be specified carefully to avoid sharing them across tasks. For example,</p>
+<pre><code class=language-julia >Folds.mapreduce&#40;x -&gt; &#40;x,&#41;, append&#33;, xs; init &#61; &#91;&#93;&#41;</code></pre>
+<p>is not a correct parallel program since it mutates the array <code>&#91;&#93;</code> in multiple tasks.  The APIs such as <code>FLoops.@reduce</code> discussed above can be used to avoid this problem when used correctly. However, it&#39;s still possible to misuse the API.  For example,</p>
+<pre><code class=language-julia >using FLoops
+
+shared_acc &#61; &#91;&#93;  # WRONG &#40;shared across tasks and mutated concurrently&#41;
+@floop for x in 1:10
+    ys &#61; &#40;x,&#41;
+    @reduce&#40;acc &#61; append&#33;&#40;shared_acc, ys&#41;&#41;
+end</code></pre>
+<p>has exactly the same problem as <code>init &#61; &#91;&#93;</code>.</p>
+<a id=private-variables  class=anchor ></a>
+<h2 id=mutable_temporary_objects_private_variables ><a href="#mutable_temporary_objects_private_variables" class=header-anchor >Mutable temporary objects &#40;private variables&#41;</a></h2>
+<p>In addition to pre-allocated objects or mutable accumulators, it is sometimes necessary to have mutable temporary objects.  While temporary objects are technically equivalent to accumulators that are ignored after the loop, it is convenient to have a dedicated API. This is why FLoops.jl has <code>@init</code> macro that declares &quot;private variables&quot; for re-using mutable temporary objects within each base case:</p>
+<pre><code class=language-julia >using FLoops
+
+@floop for x in 1:10
+    @init xs &#61; Vector&#123;Int&#125;&#40;undef, 3&#41;
+    xs .&#61; &#40;x, 2x, 3x&#41;
+    @reduce&#40;&#41; do &#40;ys &#61; zeros&#40;Int, 3&#41;; xs&#41;
+        ys .&#43;&#61; xs
+    end
+end
+
+@assert ys &#61;&#61; mapreduce&#40;x -&gt; &#91;x, 2x, 3x&#93;, .&#43;, 1:10&#41;</code></pre>
+<p>The right hand sides of the assignments in <code>@init</code> is executed only at the first iteration of each base case.</p>
+<h2 id=accidental_mutations ><a href="#accidental_mutations" class=header-anchor >Accidental mutations</a></h2>
+<p>Many parallel APIs in Julia, including <code>@threads</code> and <code>@spawn</code>, require creating closures. Thus, it is a common mistake to accidentally expand the scope of local variables. For example, the scope of <code>y</code> in the following program is larger than <code>@threads for</code> loop. As a result, the update of <code>y</code> is shared across all tasks and this function has a data race:</p>
+<pre><code class=language-julia >function f&#40;n &#61; 2^10&#41;
+    ys &#61; zeros&#40;Int, n&#41;
+    Threads.@threads for i in 1:n
+        y &#61; gcd&#40;42, i&#41;
+        some_function&#40;&#41;
+        ys&#91;i&#93; &#61; y
+    end
+
+    # Suppose that some unrelated code uses the same variable names as the
+    # temporary variables in the parallel loop:
+    if ys&#91;1&#93; &gt; 0
+        y &#61; 1
+    end
+
+    return ys
+end
+
+# Some function that Julia does not inline:
+@noinline some_function&#40;&#41; &#61; _FALSE_&#91;&#93; &amp;&amp; error&#40;&quot;unreachable&quot;&#41;
+const _FALSE_ &#61; Ref&#40;false&#41;</code></pre>
+<p>The data race is observable if there is a non-inlinable function call &#40;<code>some_function&#40;&#41;</code> in the example&#41; between the definition and the use of <code>y</code>. If we run the above function multiple times in a <code>julia</code> process started with multiple worker threads, we can observe that the result is different from the expected value:</p>
+<pre><code class=language-julia >f_seq&#40;n &#61; 2^10&#41; &#61; gcd.&#40;42, 1:n&#41;</code></pre>
+<pre><code class=language-julia-repl >julia&gt; ys &#61; f_seq&#40;&#41;
+       for i in 1:100
+           @assert f&#40;&#41; &#61;&#61; ys
+       end
+ERROR: AssertionError: f&#40;&#41; &#61;&#61; ys</code></pre>
+<p>We can use the <code>local</code> keyword to fix it:</p>
+<pre><code class=language-julia >Threads.@threads for i in 1:n
+    local y &#61; gcd&#40;42, i&#41;  # added &#96;local&#96;
+    some_function&#40;&#41;
+    ys&#91;i&#93; &#61; y
+end</code></pre>
+<p>Alternatively, if the loop body of <code>Threads.@threads</code> or the thunk of <code>Threads.@spawn</code> is large, it is a good idea to factor it out as a function.  It prevents assignments inside the closure and hence the data races.  It also makes analyzing base case performance easier.</p>
+<p>Using FLoops.jl instead of <code>@threads</code> is useful to prevent this bug.  Consider an equivalent parallel loop written with FLoops.jl:</p>
+<pre><code class=language-julia >using FLoops
+
+function f_floop&#40;n &#61; 2^10&#41;
+    ys &#61; zeros&#40;Int, n&#41;
+    @floop ThreadedEx&#40;&#41; for i in 1:n
+        y &#61; gcd&#40;42, i&#41;
+        some_function&#40;&#41;
+        ys&#91;i&#93; &#61; y
+    end
+
+    if ys&#91;1&#93; &gt; 0
+        y &#61; 1
+    end
+
+    return ys
+end</code></pre>
+<p>FLoops.jl detects that the variable <code>y</code> is now shared across all tasks:</p>
+<pre><code class=language-julia-repl >julia&gt; f_floop&#40;&#41;
+ERROR: HasBoxedVariableError: Closure __##reducing_function#258 &#40;defined in Main&#41; has 1 boxed variable: y
+HINT: Consider adding declarations such as &#96;local y&#96; at the narrowest possible scope required.</code></pre>
+<p>As the error message indicates, <code>local y &#61; gcd&#40;42, i&#41;</code> also fix the issue in <code>@floop</code>.</p>
+<a id=false-sharing  class=anchor ></a>
+<h2 id=advancedperformance_false_sharing ><a href="#advancedperformance_false_sharing" class=header-anchor >Advanced/Performance: False sharing</a></h2>
+<p>Even when parallel programs are correctly written to handle mutable objects, it may not perform well due to <a href="https://en.wikipedia.org/wiki/False_sharing"><em>false sharing</em></a>. False sharing can occur when the code running on different CPUs update adjacent &#40;but disjoint&#41; memory locations. The program is still data race-free &#40;not &quot;true&quot; sharing&#41; since it does not simultaneously mutate the same memory locations.  However, since the CPU manages the data in a unit &#40;cache line&#41; larger than single bytes, the CPUs have to communicate each other to maintain the coherent view of the data and avoid such simultaneous modification of the &quot;same&quot; memory location &#40;from the point of view of the CPUs&#41;. This extra communication slows down the program.</p>
+<div class=note ><div class=title >💡 Note</div>
+<div class=content >False sharing is hard to invoke when using the patterns discussed above due to Julia&#39;s memory management.  On the other hand, the use of <code>state&#91;threadid&#40;&#41;&#93;</code> pattern to create &quot;thread-local storage&quot; for reduction or private variables is more likely to invoke false-sharing unless used carefully &#40;e.g., padding&#41;.  More importantly, it is very hard to use <code>threadid</code>-based approach correctly since there is no systematic way to locate or restrict yield points.  See also <a href="https://juliafolds.github.io/FLoops.jl/dev/explanation/faq/#faq-state-threadid">What is the difference of <code>@reduce</code> and <code>@init</code> to the approach using <code>state&#91;threadid&#40;&#41;&#93;</code>? · FAQ · FLoops</a>.</div></div>
+<p>Let us use the following functions <sup id="fnref:cpuvendors"><a href="#fndef:cpuvendors" class=fnref >[7]</a></sup> <sup id="fnref:details"><a href="#fndef:details" class=fnref >[8]</a></sup> to demonstrate the effect of false sharing:</p>
+<p><table class=fndef  id="fndef:cpuvendors">
+    <tr>
+        <td class=fndef-backref ><a href="#fnref:cpuvendors">[7]</a>
+        <td class=fndef-content >The effect of false sharing depends on the actual CPU used. This example showed the effect of false sharing when experimented on several CPUs from different vendors &#40;Intel, AMD, and IBM&#41;. However, <a href="https://discourse.julialang.org/t/61679">a simpler example</a> did not show false sharing in some CPUs.
+    
+</table>
+ <table class=fndef  id="fndef:details">
+    <tr>
+        <td class=fndef-backref ><a href="#fnref:details">[8]</a>
+        <td class=fndef-content >Minor details: these functions use <code>@threads :static</code> scheduling to force distribution of multiple tasks to the worker &#40;OS&#41; threads. Each array in <code>yss</code> includes a space at least as large as a cache line at the end to avoid false sharing as much as possible &#40;although it can be done more parsimoniously&#41;.
+    
+</table>
+</p>
+<pre><code class=language-julia >function crowded_inc&#33;&#40;ys, data&#41;
+    Threads.@threads :static for indices in data
+        for i in indices
+            @inbounds ys&#91;i&#93; &#43;&#61; 1
+        end
+    end
+end
+
+function exclusive_inc&#33;&#40;yss, data&#41;
+    Threads.@threads :static for indices in data
+        ys &#61; yss&#91;Threads.threadid&#40;&#41;&#93;
+        for i in indices
+            @inbounds ys&#91;i&#93; &#43;&#61; 1
+        end
+    end
+end
+
+cacheline &#61; try
+    parse&#40;Int, read&#40;&quot;/sys/devices/system/cpu/cpu0/cache/index0/coherency_line_size&quot;, String&#41;&#41;
+catch err
+    @warn &quot;cannot read cache line size&quot; exception &#61; &#40;err, catch_backtrace&#40;&#41;&#41;
+    64
+end
+
+ys &#61; zeros&#40;Threads.nthreads&#40;&#41; * 2&#41;;
+partitioned_indices &#61; reshape&#40;eachindex&#40;ys&#41;, Threads.nthreads&#40;&#41;, :&#41;&#39;
+data &#61; &#91;rand&#40;partitioned_indices&#91;:, i&#93;, 2^20&#41; for i in 1:Threads.nthreads&#40;&#41;&#93;
+yss &#61; &#91;zeros&#40;length&#40;ys&#41; &#43; cld&#40;cacheline, sizeof&#40;eltype&#40;ys&#41;&#41;&#41;&#41; for _ in 1:Threads.nthreads&#40;&#41;&#93;;</code></pre>
+<p>The functions <code>crowded_inc&#33;</code> and <code>exclusive_inc&#33;</code> perform almost the same computation and use exactly the same access pattern on the output array <code>ys</code> for each task. In <code>crowded_inc&#33;</code>, since multiple tasks &#40;that are likely to be scheduled on different CPUs&#41; try to update nearby memory locations concurrently, it invokes false sharing which can be observed as the slow down compared to <code>exclusive_inc&#33;</code> &#40;see below&#41;.  This does not occur in <code>exclusive_inc&#33;</code> where each task updates an array dedicated to it &#40;we also made sure that these accesses are at least one cache line apart&#41;.</p>
+<pre><code class=language-julia >julia&gt; using BenchmarkTools
+
+julia&gt; @btime crowded_inc&#33;&#40;ys, data&#41; setup &#61; fill&#33;&#40;ys, 0&#41;;
+  95.385 ms &#40;43 allocations: 3.70 KiB&#41;
+
+julia&gt; @btime exclusive_inc&#33;&#40;yss, data&#41; setup &#61; foreach&#40;ys -&gt; fill&#40;ys, 0&#41;, yss&#41;;
+  1.801 ms &#40;41 allocations: 3.64 KiB&#41;
+
+julia&gt; versioninfo&#40;&#41;
+Julia Version 1.6.0
+Commit f9720dc2eb &#40;2021-03-24 12:55 UTC&#41;
+Platform Info:
+  OS: Linux &#40;x86_64-pc-linux-gnu&#41;
+  CPU: AMD EPYC 7502 32-Core Processor
+  WORD_SIZE: 64
+  LIBM: libopenlibm
+  LLVM: libLLVM-11.0.1 &#40;ORCJIT, znver2&#41;
+
+julia&gt; Threads.nthreads&#40;&#41;
+8</code></pre>
+<h3 id=analyzing_false_sharing_using_perf_c2c ><a href="#analyzing_false_sharing_using_perf_c2c" class=header-anchor >Analyzing false sharing using <code>perf c2c</code></a></h3>
+<p>If you have a CPU &#40;e.g., Intel&#41; supported by <a href="https://joemario.github.io/blog/2016/09/01/c2c-blog/"><code>perf
+c2c</code></a>, it can be used to detect false sharing.  You can try the following steps or use the script <a href="https://github.com/JuliaFolds/data-parallelism/blob/master/scripts/perf_c2c_demo.jl"><code>perf_c2c_demo.jl</code></a> to analyze the functions we defined above:</p>
+<ol>
+<li><p>Create a working directory and <code>cd</code> into it.</p>
+
+<li><p>Run <code>perf c2c record -- --output&#61;crowded_inc-perf.data</code> &#40;in a different system shell session&#41; while invoking <code>@btime crowded_inc&#33;&#40;ys, data&#41;</code> in the Julia REPL. Terminate it with <kbd>Ctrl</kbd>-<kbd>C</kbd> when the benchmark is finished.</p>
+
+<li><p>Similarly, run <code>perf c2c record -- --output&#61;exclusive_inc-perf.data</code> while invoking <code>@btime exclusive_inc&#33;&#40;yss, data&#41;</code> in the Julia REPL. Terminate it with <kbd>Ctrl</kbd>-<kbd>C</kbd> when the benchmark is finished.</p>
+
+<li><p>Run, e.g., <code>perf c2c report --input&#61;crowded_inc-perf.data -c tid,iaddr</code> and <code>perf c2c report --input&#61;exclusive_inc-perf.data -c tid,iaddr</code> to analyze the memory accesses.</p>
+
+</ol>
+<p>An example output of <code>perf_c2c_demo.jl</code> can be found at <a href="https://gist.github.com/01f4793281dc5edee59c9b6cfb05846b">https://gist.github.com/01f4793281dc5edee59c9b6cfb05846b</a>.  See <a href="https://joemario.github.io/blog/2016/09/01/c2c-blog/">C2C - False Sharing Detection in Linux Perf - My Octopress Blog</a> for more information on <code>perf c2c</code> and <a href="https://perf.wiki.kernel.org/index.php/Main_Page">Perf Wiki</a> for more information on <code>perf</code> in general.</p>
+<p>In this example, the command <code>perf c2c report --input&#61;crowded_inc-perf.data -c
+tid,iaddr</code> shows the false sharing in <a href="https://gist.github.com/tkf/01f4793281dc5edee59c9b6cfb05846b#file-crowded_inc-perf-txt-L61-L70">this table</a>:</p>
+<pre><code class=language-julia >&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;
+           Shared Data Cache Line Table
+&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;
+#
+#        ----------- Cacheline ----------      Tot     …
+# Index             Address  Node  PA cnt     Hitm     …
+# .....  ..................  ....  ......  .......     …
+#                                                      …
+      0      0x7f439f2a1ec0     0   62111   15.50&#37;     …
+      1      0x7f439f2a1e80     0  134824   14.76&#37;     …</code></pre>
+<p>The addresses corresponding to these two top <em>Hitm</em> &#40;load that hit in a modified cacheline&#41; are in the output array <code>ys</code> &#40;if you use <code>perf_c2c_demo.jl</code>, the addresses are stored in <a href="https://gist.github.com/tkf/01f4793281dc5edee59c9b6cfb05846b#file-pointers-txt"><code>pointers.txt</code></a>&#41;:</p>
+<pre><code class=language-julia >julia&gt; lower_bound &#61; 0x00007f439f2a1e60;  # pointer&#40;ys, 1&#41;
+
+julia&gt; upper_bound &#61; 0x00007f439f2a1ed8;  # pointer&#40;ys, length&#40;ys&#41;&#41;
+
+julia&gt; lower_bound &lt;&#61; 0x7f439f2a1ec0 &lt;&#61; upper_bound  # from: perf c2c report
+true
+
+julia&gt; lower_bound &lt;&#61; 0x7f439f2a1e80 &lt;&#61; upper_bound  # from: perf c2c report
+true</code></pre>
+<p>Furthermore, you can find the threads accessing <code>0x7f439f2a1ec0</code> by looking at <a href="https://gist.github.com/tkf/01f4793281dc5edee59c9b6cfb05846b#file-crowded_inc-perf-txt-L209-L227">another table</a> in the output:</p>
+<pre><code class=language-julia >&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;
+      Shared Cache Line Distribution Pareto
+&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;
+#
+# ----- HITM -----  -- Store Refs --  ------- CL --------
+# RmtHitm  LclHitm   L1 Hit  L1 Miss    Off  Node  PA cnt            Tid      …
+# .......  .......  .......  .......  .....  ....  ......  .............      …
+#
+  -------------------------------------------------------------
+      0       21       21    38634    28457      0x7f439f2a1ec0
+  -------------------------------------------------------------
+   28.57&#37;    9.52&#37;    0.00&#37;    0.00&#37;    0x0     0       1    22239:julia      …
+    0.00&#37;    0.00&#37;   26.02&#37;   26.68&#37;    0x0     0       1    22239:julia      …
+   33.33&#37;   47.62&#37;    0.00&#37;    0.00&#37;    0x8     0       1    22240:julia      …
+    0.00&#37;    0.00&#37;   27.23&#37;   27.08&#37;    0x8     0       1    22240:julia      …
+   19.05&#37;   33.33&#37;    0.00&#37;    0.00&#37;   0x10     0       1    22241:julia      …
+    0.00&#37;    0.00&#37;   27.33&#37;   27.14&#37;   0x10     0       1    22241:julia      …
+   19.05&#37;    9.52&#37;    0.00&#37;    0.00&#37;   0x18     0       1    22242:julia      …
+    0.00&#37;    0.00&#37;   19.42&#37;   19.10&#37;   0x18     0       1    22242:julia      …</code></pre>
+<p>Compare the Tid column above with the list of TIDs of Julia&#39;s worker thread &#40;see <a href="https://gist.github.com/tkf/01f4793281dc5edee59c9b6cfb05846b#file-worker_tids-txt"><code>worker_tids.txt</code></a> generated by <code>perf_c2c_demo.jl</code>&#41;:</p>
+<pre><code class=language-sh >&#36; cat worker_tids.txt
+22234
+22236
+22237
+22238
+22239
+22240
+22241
+22242</code></pre>
+<p>On the other hand, <a href="https://gist.github.com/tkf/01f4793281dc5edee59c9b6cfb05846b#file-exclusive_inc-perf-txt-L61-L73">the output</a> of <code>perf c2c report
+--input&#61;exclusive_inc-perf.data -c tid,iaddr</code> does not show the sign of false sharing &#40;Hitm is small and the addresses are outside of <code>yss&#91;_&#93;&#91;_&#93;</code>&#41;:</p>
+<pre><code class=language-julia >&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;
+           Shared Data Cache Line Table
+&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;&#61;
+#
+#        ----------- Cacheline ----------      Tot      …
+# Index             Address  Node  PA cnt     Hitm      …
+# .....  ..................  ....  ......  .......      …
+#
+      0  0xffffffff8d546040     0       1    2.99&#37;      …
+      1      0x555ae2321340     0       9    2.99&#37;      …
+      2      0x7f43b1a91cc0     0       1    1.80&#37;      …
+      3  0xffff95a65fc2cc80     0       1    1.20&#37;      …
+      4  0xffffffff8ce44a40     0       1    0.60&#37;      …
+      …</code></pre>
+<h2 id=advanced_adjoining_trick ><a href="#advanced_adjoining_trick" class=header-anchor >Advanced: adjoining trick</a></h2>
+<p>While APIs such as <code>FLoops.@reduce</code>, <code>FLoops.@init</code>, and <code>Transducers.OnInit</code> are useful, not all parallel frameworks support such constructs. Furthermore, it may be desirable to have even finer grained control; e.g., fusing the first iteration and the initial value computation.  Fortunately, the basis of the initial value handling is just a plain algebra concept that can be implemented with a couple of lines of code.  &#40;See &quot;adjoining&quot; in, e.g., <a href="https://en.wikipedia.org/wiki/Semigroup#Identity_and_zero">Semigroup - Wikipedia</a>.&#41;</p>
+<p>First, let us start from a simple case without mutable accumulator. Given a binary associative function <code>semigroup</code> without a &#40;known&#41; identity element, we can construct a binary function <code>monoid</code> with pre-defined identity element:</p>
+<pre><code class=language-julia >struct Init end
+
+function asmonoid&#40;semigroup&#41;
+    monoid&#40;a, b&#41; &#61; semigroup&#40;a, b&#41;
+    monoid&#40;::Init, b&#41; &#61; b
+    monoid&#40;a, ::Init&#41; &#61; a
+    monoid&#40;::Init, ::Init&#41; &#61; Init&#40;&#41;  # disambiguation
+    return monoid
+end
+
+let ⊗ &#61; asmonoid&#40;min&#41;
+    @assert 1 ⊗ 2 &#61;&#61; 1
+    @assert 1 ⊗ Init&#40;&#41; &#61;&#61; 1
+    @assert Init&#40;&#41; ⊗ 2 &#61;&#61; 2
+    @assert Init&#40;&#41; ⊗ Init&#40;&#41; &#61;&#61; Init&#40;&#41;
+end</code></pre>
+<p>&#40;See also <a href="https://github.com/JuliaFolds/InitialValues.jl">InitialValues.jl</a> as an implementation of this idea used in JuliaFolds.&#41;</p>
+<div class=note ><div class=title >💡 Note</div>
+<div class=content >Even though <code>asmonod</code> turns the accumulator type into a small <code>Union</code> of types, the actual base case loop can be very efficient if it uses the <a href="https://juliafolds.github.io/Transducers.jl/dev/explanation/state_machines/#tail-call-function-barrier">tail-call &quot;function-barrier&quot; pattern</a> to type-stabilize the accumulator type.</div></div>
+<p>The function <code>asmonoid</code> can be slightly modified to support &quot;in-place semigroup&quot; with mutable initial value:</p>
+<pre><code class=language-julia >function withinit&#40;f, semigroup&#33;&#41;
+    monoid&#33;&#40;a, b&#41; &#61; semigroup&#33;&#40;a, b&#41;
+    monoid&#33;&#40;::Init, b&#41; &#61; semigroup&#33;&#40;f&#40;&#41;, b&#41;
+    monoid&#33;&#40;a, ::Init&#41; &#61; a
+    monoid&#33;&#40;::Init, ::Init&#41; &#61; Init&#40;&#41;  # disambiguation
+    return monoid&#33;
+end
+
+let ⊗ &#61; withinit&#40;&#40;&#41; -&gt; &#91;&#93;, append&#33;&#41;
+    @assert &#91;1&#93; ⊗ &#91;2&#93; &#61;&#61; &#91;1, 2&#93;
+    @assert &#91;1&#93; ⊗ Init&#40;&#41; &#61;&#61; &#91;1&#93;
+    @assert Init&#40;&#41; ⊗ &#91;2&#93; &#61;&#61; &#91;2&#93;
+    @assert Init&#40;&#41; ⊗ Init&#40;&#41; &#61;&#61; Init&#40;&#41;
+end
+
+using Folds
+ys &#61; Folds.mapreduce&#40;tuple, withinit&#40;&#40;&#41; -&gt; Int&#91;&#93;, append&#33;&#41;, 1:10; init &#61; Init&#40;&#41;&#41;
+
+@assert ys &#61;&#61; 1:10</code></pre>
+<p>Assuming that the parallel <code>mapreduce</code> implementation uses left-to-right iteration &#40;i.e., left fold; <code>foldl</code>&#41; as the base case, the in-place function <code>modnoid&#33;</code> created by <code>withinit</code> initializes the accumulator at the first iteration using the function <code>f</code> and re-uses it for each base case.</p>
+<div style="float: right">
+  <small>
+  <a href="?test=show" id=show-test-result >#show test results</a>
+  </small>
+</div>
+<div class=page-foot >
+  <div class=copyright >
+    <a rel=license  href="http://creativecommons.org/licenses/by-sa/4.0/"><img alt="Creative Commons License" style="border-width:0" src="https://i.creativecommons.org/l/by-sa/4.0/88x31.png" /></a><br />This work is licensed under a <a rel=license  href="http://creativecommons.org/licenses/by-sa/4.0/">Creative Commons Attribution-ShareAlike 4.0 International License</a>.
+  </div>
+  <div class=copyright >
+    &copy; Takafumi Arakaki. Last modified: June 10, 2021. Website built with <a href="https://github.com/tlienart/Franklin.jl">Franklin.jl</a> and the <a href="https://julialang.org">Julia programming language</a>.
+  </div>
+</div>
+</div>
+    
+    
+        <script src="/data-parallelism/previews/PR38/libs/highlight/highlight.pack.js"></script>
+<script>hljs.initHighlightingOnLoad();hljs.configure({tabReplace: '    '});</script>
+
+    
+    <script>
+      (function() {
+        if (window.location.search.includes("?test=show")){
+          var list = document.getElementsByClassName("test");
+          for (let item of list) {
+            item.style.display = "block";
+          };
+        }
+      })()
+    </script>

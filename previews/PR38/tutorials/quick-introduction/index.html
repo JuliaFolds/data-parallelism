@@ -1,0 +1,445 @@
+<!doctype html> <html lang=en > <meta charset=UTF-8 > <meta name=viewport  content="width=device-width, initial-scale=1"> <link rel=stylesheet  href="/data-parallelism/previews/PR38/libs/highlight/github.min.css"> <link rel=stylesheet  href="/data-parallelism/previews/PR38/css/franklin.css"> <link rel=stylesheet  href="/data-parallelism/previews/PR38/css/basic.css"> <link rel=icon  href="/data-parallelism/previews/PR38/assets/juliafolds-logo.ico"> <title>A quick introduction to data parallelism in Julia</title> <header> <div class=blog-name ><a href="/data-parallelism/previews/PR38/">Data-parallel Julia</a></div> <nav> <!-- <ul> <li><a href="/data-parallelism/previews/PR38/">Home</a> <li><a href="/data-parallelism/previews/PR38/menu1/">Code blocks</a> <li><a href="/data-parallelism/previews/PR38/menu2/">More goodies</a> <li><a href="/data-parallelism/previews/PR38/menu3/">Tags</a> </ul> --> <a href="https://github.com/JuliaFolds/data-parallelism/blob/master/src/tutorials/quick-introduction.md"> <img class=github-edit-small  src="https://img.shields.io/badge/-Edit-green?logo=github&style=social"> <img class=github-edit-big  src="https://img.shields.io/badge/source-Suggest%20Edit-green?logo=github&style=social"> </a> <!-- <img src="/data-parallelism/previews/PR38/assets/hamburger.svg" id=menu-icon > --> </nav> </header> <div class=franklin-content ><h1 id=a_quick_introduction_to_data_parallelism_in_julia ><a href="#a_quick_introduction_to_data_parallelism_in_julia" class=header-anchor >A quick introduction to data parallelism in Julia</a></h1> <p>If you have a large collection of data and have to do similar computations on each element, <a href="https://en.wikipedia.org/wiki/Data_parallelism">data parallelism</a> is an easy way to speedup computation using multiple CPUs and machines as well as GPU&#40;s&#41;. While this is not the only kind of parallelism, it covers a vast class of compute-intensive programs. A major hurdle for using data parallelism is that you need to unlearn some habits useful in sequential computation &#40;i.e., patterns result in mutations of data structure&#41;. In particular, it is important to use libraries that help you describe <em>what</em> to compute rather than <em>how</em> to compute. Practically, it means to use generalized form of map and reduce operations and learn how to express your computation in terms of them. Luckily, if you already know how to write <a href="https://docs.julialang.org/en/v1/manual/arrays/#Generator-Expressions">iterator comprehensions</a>, there is not much more to learn for accessing a large class of data parallel computations.</p> <div class=note ><div class=title >💡 Note</div> <div class=content >If you want to get a high-level <em>idea</em> of data parallel computing, Guy L. Steele Jr.&#39;s InfoQ talk <a href="https://www.infoq.com/presentations/Thinking-Parallel-Programming/">How to Think about Parallel Programming: Not&#33;</a> is a great introduction &#40;with a lot of fun tangential remarks&#41;. His Google TechTalk <a href="https://www.youtube.com/watch?v&#61;ftcIcn8AmSY">Four Solutions to a Trivial Problem</a> is also very helpful for getting into data parallelism mind set.</div></div> <p>This introduction primary focuses on the Julia packages that I &#40;Takafumi Arakaki <strong><code>@tkf</code></strong>&#41; have developed. As a result, it currently focuses on thread-based parallelism. There is a simple distributed computing support and a preliminary GPU support with <a href="https://github.com/JuliaFolds/FoldsCUDA.jl">FoldsCUDA.jl</a>. See also <a href="../../explanation/libraries/">other parallel-computation libraries in Julia</a>.</p> <p>Also note that this introduction does not discuss how to use threading primitives such as <a href="https://docs.julialang.org/en/v1/base/multi-threading/"><code>Threads.@spawn</code></a> since it is too low-level and error-prone. For data parallelism, a higher-level description is much more appropriate. It also helps you write more reusable code; e.g., using the same code for single-threaded, multi-threaded, and distributed computing.</p> <p><div class=franklin-toc ><ol><li><a href="#getting_julia_and_libraries">Getting <code>julia</code> and libraries</a><li><a href="#starting_julia">Starting <code>julia</code></a><ol><li><a href="#starting_julia_with_multiple_worker_processes">Starting <code>julia</code> with multiple worker processes</a></ol><li><a href="#mapping">Mapping</a><ol><li><a href="#practical_example_stopping_time_of_collatz_function">Practical example: Stopping time of Collatz function</a></ol><li><a href="#iterator_comprehensions">Iterator comprehensions</a><li><a href="#pre-defined_reductions">Pre-defined reductions</a><ol><li><a href="#practical_example_maximum_stopping_time_of_collatz_function">Practical example: Maximum stopping time of Collatz function</a><li><a href="#onlinestatsjl">OnlineStats.jl</a></ol><li><a href="#manual_reductions">Manual reductions</a><ol><li><a href="#parallel_findminfindmax_with_reduce_do">Parallel <code>findmin</code>/<code>findmax</code> with <code>@reduce&#40;&#41; do</code></a><li><a href="#parallel_findminfindmax_with_foldsreduce_tedious">Parallel <code>findmin</code>/<code>findmax</code> with <code>Folds.reduce</code> &#40;tedious&#33;&#41;</a><li><a href="#histogram_with_reduce">Histogram with <code>reduce</code></a><li><a href="#practical_example_histogram_of_stopping_time_of_collatz_function">Practical example: Histogram of stopping time of Collatz function</a><li><a href="#quick_notes_on_threads_and_distributed">Quick notes on <code>@threads</code> and <code>@distributed</code></a></ol><li><a href="#next_steps">Next steps</a></ol></div> </p> <h2 id=getting_julia_and_libraries ><a href="#getting_julia_and_libraries" class=header-anchor >Getting <code>julia</code> and libraries</a></h2> <p>Most of the examples here may work in all Julia 1.x releases. However, for the best result, it is highly recommended to get the latest released version &#40;1.5.2 as of writing&#41;. You can download it at <a href="https://julialang.org/">https://julialang.org/</a>.</p> <p>Once you get <code>julia</code>, you can get the dependencies required for this tutorial by running <code>using Pkg; Pkg.add&#40;&#91;&quot;Transducers&quot;, &quot;Folds&quot;, &quot;OnlineStats&quot;, &quot;FLoops&quot;, &quot;MicroCollections&quot;, &quot;BangBang&quot;, &quot;Plots&quot;, &quot;BenchmarkTools&quot;&#93;&#41;</code> in Julia REPL.</p> <p>If you prefer using exactly the same environment used for testing this tutorial, run the following commands</p> <pre><code class=language-bash >git clone https://github.com/JuliaFolds/data-parallelism
+cd data-parallelism
+julia --project</code></pre> <p>and then in the Julia REPL:</p> <pre><code class=language-julia-repl >julia&gt; using Pkg
+
+julia&gt; Pkg.instantiate&#40;&#41;</code></pre> <h2 id=starting_julia ><a href="#starting_julia" class=header-anchor >Starting <code>julia</code></a></h2> <p>To use multi-threading in Julia, you need to start it with multiple execution threads. If you have Julia 1.5 or higher, you can start it with the <code>-t auto</code> &#40;or, equivalently, <code>--threads auto</code>&#41; option:</p> <pre><code class=language-plaintext >&#36; julia -t auto
+               _
+   _       _ _&#40;_&#41;_     |  Documentation: https://docs.julialang.org
+  &#40;_&#41;     | &#40;_&#41; &#40;_&#41;    |
+   _ _   _| |_  __ _   |  Type &quot;?&quot; for help, &quot;&#93;?&quot; for Pkg help.
+  | | | | | | |/ _&#96; |  |
+  | | |_| | | | &#40;_| |  |  Version 1.5.2 &#40;2020-09-23&#41;
+ _/ |\__&#39;_|_|_|\__&#39;_|  |  Official https://julialang.org/ release
+|__/                   |
+
+julia&gt; Threads.nthreads&#40;&#41;  # number of core you have
+8</code></pre> <p>The command line option <code>-t</code>/<code>--threads</code> can also take the number of threads to be used. In older Julia releases, use the <code>JULIA_NUM_THREADS</code> environment variable. For example, on Linux and macOS, <code>JULIA_NUM_THREADS&#61;4 julia</code> starts <code>juila</code> with 4 execution threads.</p> <p>For more information, see <a href="https://docs.julialang.org/en/v1/manual/multi-threading/#Starting-Julia-with-multiple-threads">Starting Julia with multiple threads</a> in the Julia manual.</p> <h3 id=starting_julia_with_multiple_worker_processes ><a href="#starting_julia_with_multiple_worker_processes" class=header-anchor >Starting <code>julia</code> with multiple worker processes</a></h3> <p>A few examples below mention <a href="https://docs.julialang.org/en/v1/stdlib/Distributed/">Distributed.jl</a>-based parallelism. Like how multi-threading is setup, you need to setup multiple worker processes to get speedup. You can start <code>julia</code> with <code>-p auto</code> &#40;or, equivalently, <code>--procs auto</code>&#41;. Distributed.jl also lets you add worker processes after starting Julia with <a href="https://docs.julialang.org/en/v1/stdlib/Distributed/#Distributed.addprocs"><code>addprocs</code></a>:</p> <pre><code class=language-julia >using Distributed
+addprocs&#40;8&#41;</code></pre> <p>For more information, see <a href="https://docs.julialang.org/en/v1/manual/distributed-computing/#Starting-and-managing-worker-processes">Starting and managing worker processes</a> section in the Julia manual.</p> <h2 id=mapping ><a href="#mapping" class=header-anchor >Mapping</a></h2> <p>Mapping is probably the most frequently used function in data parallelism. Recall how Julia&#39;s sequential <code>map</code> works:</p> <pre><code class=language-julia >a1 &#61; map&#40;string, 1:9, &#39;a&#39;:&#39;i&#39;&#41;</code></pre>
+<pre><code class=plaintext >9-element Vector{String}:
+ "1a"
+ "2b"
+ "3c"
+ "4d"
+ "5e"
+ "6f"
+ "7g"
+ "8h"
+ "9i"</code></pre>
+<p>We can simply replace it with <a href="https://github.com/JuliaFolds/Folds.jl"><code>Folds.map</code></a> for thread-based parallelism &#40;see also <a href="../../explanation/libraries/">other libraries</a>&#41;:</p>
+<pre><code class=language-julia >using Folds
+a2 &#61; Folds.map&#40;string, 1:9, &#39;a&#39;:&#39;i&#39;&#41;
+@assert a1 &#61;&#61; a2</code></pre>
+
+<p>Julia&#39;s standard library Distributed.jl contains <a href="https://docs.julialang.org/en/v1/stdlib/Distributed/#Distributed.pmap"><code>pmap</code></a> as a distributed version of <code>map</code>:</p>
+<pre><code class=language-julia >using Distributed
+a3 &#61; pmap&#40;string, 1:9, &#39;a&#39;:&#39;i&#39;&#41;
+@assert a1 &#61;&#61; a3</code></pre>
+
+<div class=test ><div class=test_code ><div class=title >🔬 Test Code</div>
+<pre><code class=language-julia >using Test
+    @testset begin
+        @test a1 &#61;&#61; a2
+        @test a1 &#61;&#61; a3
+    end</code></pre></div> <div class=test_ok ><div class=title >☑ Pass</div>
+<pre><code class=plaintext >Test Summary: | Pass  Total
+test set      |    2      2
+</code></pre></div></div>
+<div class=note ><div class=title >💡 Note</div>
+<div class=content >In the above example, the inputs &#40;<code>1:9</code> and <code>&#39;a&#39;:&#39;i&#39;</code>&#41; are too small for multi-threading to be useful.  In this tutorial, almost all examples except &quot;Practical example&quot; are toy examples that are designed to demonstrate how the functions work.  It is an &quot;exercise&quot; for the reader to try a larger input sizes and see on what size multi-threading becomes useful.</div></div>
+<h3 id=practical_example_stopping_time_of_collatz_function ><a href="#practical_example_stopping_time_of_collatz_function" class=header-anchor >Practical example: Stopping time of Collatz function</a></h3>
+<p>As a slightly more &quot;practical&quot; example, let&#39;s play with the <a href="https://en.wikipedia.org/wiki/Collatz_conjecture">Collatz conjecture</a> which states that recursive application the <em>Collatz function</em> defined as</p>
+<pre><code class=language-julia >collatz&#40;x&#41; &#61;
+    if iseven&#40;x&#41;
+        x ÷ 2
+    else
+        3x &#43; 1
+    end</code></pre>
+
+<p>reaches the number 1 for all positive integers.</p>
+<p>I&#39;ll skip the mathematical background of it &#40;as I don&#39;t know much about it&#41; but let me mention that there are plenty of fun-to-watch explanations in YouTube :&#41;</p>
+<p>If the conjecture is correct, the number of iteration required for the initial value is finite.  In Julia, we can calculate it with</p>
+<pre><code class=language-julia >function collatz_stopping_time&#40;x&#41;
+    n &#61; 0
+    while true
+        x &#61;&#61; 1 &amp;&amp; return n
+        n &#43;&#61; 1
+        x &#61; collatz&#40;x&#41;
+    end
+end</code></pre>
+
+<p>Just for fun, let&#39;s plot the stopping time of the initial values from 1 to 10,000:</p>
+<pre><code class=language-julia >using Plots
+plt &#61; scatter&#40;
+    map&#40;collatz_stopping_time, 1:10_000&#41;,
+    xlabel &#61; &quot;Initial value&quot;,
+    ylabel &#61; &quot;Stopping time&quot;,
+    label &#61; &quot;&quot;,
+    markercolor &#61; 1,
+    markerstrokecolor &#61; 1,
+    markersize &#61; 3,
+    size &#61; &#40;450, 300&#41;,
+&#41;</code></pre>
+<img src="/data-parallelism/previews/PR38/assets/tutorials/quick-introduction/code/output/collatz_stopping_time_scatter.png" alt="">
+<p>We can easily parallelize <code>map&#40;collatz_stopping_time, 1:10_000&#41;</code> and get a good speedup:</p>
+<pre><code class=language-julia-repl >julia&gt; Threads.nthreads&#40;&#41;  # I started &#96;julia&#96; with &#96;-t 4&#96;
+4
+
+julia&gt; using BenchmarkTools
+
+julia&gt; @btime map&#40;collatz_stopping_time, 1:100_000&#41;;
+  18.116 ms &#40;2 allocations: 781.33 KiB&#41;
+
+julia&gt; @btime Folds.map&#40;collatz_stopping_time, 1:100_000&#41;;
+  5.391 ms &#40;1665 allocations: 7.09 MiB&#41;</code></pre>
+<h2 id=iterator_comprehensions ><a href="#iterator_comprehensions" class=header-anchor >Iterator comprehensions</a></h2>
+<p>Julia&#39;s <a href="https://docs.julialang.org/en/v1/manual/arrays/#Generator-Expressions">iterator comprehension syntax</a> is a powerful tool for composing mapping, filtering, and flattening. Recall that mapping can be written as an array or iterator comprehension:</p>
+<pre><code class=language-julia >b1 &#61; map&#40;x -&gt; x &#43; 1, 1:3&#41;
+b2 &#61; &#91;x &#43; 1 for x in 1:3&#93;         # array comprehension
+b3 &#61; collect&#40;x &#43; 1 for x in 1:3&#41;  # iterator comprehension
+@assert b1 &#61;&#61; b2 &#61;&#61; b3
+b1</code></pre>
+<pre><code class=plaintext >3-element Vector{Int64}:
+ 2
+ 3
+ 4</code></pre>
+<p>The iterator comprehension can be executed with threads by using <a href="https://github.com/JuliaFolds/Folds.jl"><code>Folds.collect</code></a>:</p>
+<pre><code class=language-julia >b4 &#61; Folds.collect&#40;x &#43; 1 for x in 1:3&#41;
+@assert b1 &#61;&#61; b4</code></pre>
+
+<div class=test ><div class=test_code ><div class=title >🔬 Test Code</div>
+<pre><code class=language-julia >using Test
+    @testset begin
+        @test b1 &#61;&#61; b2 &#61;&#61; b3
+    end</code></pre></div> <div class=test_ok ><div class=title >☑ Pass</div>
+<pre><code class=plaintext >Test Summary: | Pass  Total
+test set      |    1      1
+</code></pre></div></div>
+<p>Note that more complex composition of mapping, filtering, and flattening can also be executed in parallel:</p>
+<pre><code class=language-julia >c1 &#61; Folds.collect&#40;y for x in 1:3 if isodd&#40;x&#41; for y in 1:x&#41;</code></pre>
+<pre><code class=plaintext >4-element Vector{Int64}:
+ 1
+ 1
+ 2
+ 3</code></pre>
+<p><a href="https://juliafolds.github.io/Transducers.jl/dev/reference/manual/#Transducers.dcollect"><code>Transducers.dcollect</code></a> is for using iterator comprehensions with a distributed backend:</p>
+<pre><code class=language-julia >using Transducers
+c2 &#61; dcollect&#40;y for x in 1:3 if isodd&#40;x&#41; for y in 1:x&#41;
+@assert c1 &#61;&#61; c2</code></pre>
+
+<div class=test ><div class=test_code ><div class=title >🔬 Test Code</div>
+<pre><code class=language-julia >@test c1 &#61;&#61; c2 &#61;&#61; &#91;1, 1, 2, 3&#93;</code></pre></div> <div class=test_ok ><div class=title >☑ Pass</div></div></div>
+<h2 id=pre-defined_reductions ><a href="#pre-defined_reductions" class=header-anchor >Pre-defined reductions</a></h2>
+<p>Functions such as <code>sum</code>, <code>prod</code>, <code>maximum</code>, and <code>all</code> are the examples of <em>reduction</em> &#40;aka <a href="https://en.wikipedia.org/wiki/Fold_&#40;higher-order_function&#41;"><em>fold</em></a>&#41;<sup id="fnref:1"><a href="#fndef:1" class=fnref >[1]</a></sup> that can be parallelized.  They are very powerful tools when combined with iterator comprehensions.  Using Folds.jl, a sum of an iterator created by the comprehension syntax</p>
+<pre><code class=language-julia >d1 &#61; sum&#40;x &#43; 1 for x in 1:3&#41;</code></pre>
+<pre><code class=plaintext >9</code></pre>
+<p>can easily be parallelized by</p>
+<pre><code class=language-julia >d2 &#61; Folds.sum&#40;x &#43; 1 for x in 1:3&#41;</code></pre>
+<pre><code class=plaintext >9</code></pre>
+<div class=test ><div class=test_code ><div class=title >🔬 Test Code</div>
+<pre><code class=language-julia >@test d1 &#61;&#61; d2</code></pre></div> <div class=test_ok ><div class=title >☑ Pass</div></div></div>
+<p>For the full list of pre-defined reductions and other parallelized functions, type <code>Folds.</code> and press <kbd>TAB</kbd> in the REPL.</p>
+<table class=fndef  id="fndef:1">
+    <tr>
+        <td class=fndef-backref ><a href="#fnref:1">[1]</a>
+        <td class=fndef-content ><code>map</code> and <code>collect</code> are also fold.
+    
+</table>
+
+<h3 id=practical_example_maximum_stopping_time_of_collatz_function ><a href="#practical_example_maximum_stopping_time_of_collatz_function" class=header-anchor >Practical example: Maximum stopping time of Collatz function</a></h3>
+<p>We can use <code>maximum</code> to compute the maximum stopping time of Collatz function on a given the range of initial values</p>
+<pre><code class=language-julia >max_time &#61; Folds.maximum&#40;collatz_stopping_time, 1:100_000&#41;</code></pre>
+<pre><code class=plaintext >350</code></pre>
+<div class=test ><div class=test_code ><div class=title >🔬 Test Code</div>
+<pre><code class=language-julia >@test max_time &#61;&#61; 350</code></pre></div> <div class=test_ok ><div class=title >☑ Pass</div></div></div>
+<p>We get a speedup similar to the <code>map</code> example above:</p>
+<pre><code class=language-julia-repl >julia&gt; @btime maximum&#40;collatz_stopping_time, 1:100_000&#41;
+  17.625 ms &#40;0 allocations: 0 bytes&#41;
+350
+
+julia&gt; @btime Folds.maximum&#40;collatz_stopping_time, 1:100_000&#41;
+  5.024 ms &#40;1214 allocations: 69.17 KiB&#41;
+350</code></pre>
+<h3 id=onlinestatsjl ><a href="#onlinestatsjl" class=header-anchor >OnlineStats.jl</a></h3>
+<p><a href="https://github.com/joshday/OnlineStats.jl">OnlineStats.jl</a> provides a <a href="https://joshday.github.io/OnlineStats.jl/latest/stats_and_models/">very rich</a> and <a href="https://joshday.github.io/OnlineStats.jl/latest/collections/">composable</a> set of reductions.  You can pass it as the first argument to <a href="https://github.com/JuliaFolds/Folds.jl#onlinestatsjl"><code>Folds.reduce</code></a>:</p>
+<pre><code class=language-julia >using OnlineStats: Mean
+e1 &#61; Folds.reduce&#40;Mean&#40;&#41;, 1:10&#41;</code></pre>
+<pre><code class=plaintext >Mean: n=10 | value=5.5</code></pre>
+<div class=test ><div class=test_code ><div class=title >🔬 Test Code</div>
+<pre><code class=language-julia >using Test, OnlineStats; @test e1 &#61;&#61; fit&#33;&#40;Mean&#40;&#41;, 1:10&#41;</code></pre></div> <div class=test_ok ><div class=title >☑ Pass</div></div></div>
+<div class=note ><div class=title >💡 Note</div>
+<div class=content >While OnlineStats.jl often does not provide the fastest way to compute the given statistics when all the intermediate data can fit in memory, in many cases you don&#39;t really need the absolute best performance. However, it may be worth considering other ways to compute statistics if Folds.jl &#43; OnlineStats.jl becomes the bottleneck.</div></div>
+<h2 id=manual_reductions ><a href="#manual_reductions" class=header-anchor >Manual reductions</a></h2>
+<p>For non-trivial parallel computations, you need to write a custom reduction.  <a href="https://github.com/JuliaFolds/FLoops.jl">FLoops.jl</a> provides a concise set of syntax for writing custom reductions.  For example, this is how to compute sums of two quantities in one sweep:</p>
+<pre><code class=language-julia >using FLoops
+
+@floop for &#40;x, y&#41; in zip&#40;1:3, 1:2:6&#41;
+    a &#61; x &#43; y
+    b &#61; x - y
+    @reduce&#40;s &#43;&#61; a, t &#43;&#61; b&#41;
+end
+&#40;s, t&#41;</code></pre>
+<p><pre><code class=plaintext >(15, -3)</code></pre> <div class=test ><div class=test_code ><div class=title >🔬 Test Code</div>
+<pre><code class=language-julia >@test &#40;s, t&#41; &#61;&#61; &#40;15, -3&#41;</code></pre></div> <div class=test_ok ><div class=title >☑ Pass</div></div></div></p>
+<p>In this example, we do not initialize <code>s</code> and <code>t</code>; but it is not a typo.  In parallel sum, the only reasonable value of the initial state of the accumulators like <code>s</code> and <code>t</code> is zero.  So, <code>@reduce&#40;s &#43;&#61; a, t
+&#43;&#61; b&#41;</code> works as if <code>s</code> and <code>t</code> are initialized to appropriate type of zero.  However, since there are many zeros in Julia &#40;<code>0::Int</code>, <code>0.0::Float64</code>, <code>&#40;0x00 &#43; 0x00im&#41;::Complex&#123;UInt8&#125;</code>, ...&#41;, <code>s</code> and <code>t</code> are undefined if the input collection &#40;i.e., the value of <code>xs</code> in <code>for
+x in xs</code>&#41; is empty.</p>
+<p>To control the type of the accumulators and also to avoid <code>UndefVarError</code> in the empty case, you can set the initial value with <code>accumulator &#61; initial_value op input</code> syntax</p>
+<pre><code class=language-julia >@floop for &#40;x, y&#41; in zip&#40;1:3, 1:2:6&#41;
+    a &#61; x &#43; y
+    b &#61; x - y
+    @reduce&#40;s2 &#61; 0.0 &#43; a, t2 &#61; 0im &#43; b&#41;
+end
+&#40;s2, t2&#41;</code></pre>
+<p><pre><code class=plaintext >(15.0, -3 + 0im)</code></pre> <div class=test ><div class=test_code ><div class=title >🔬 Test Code</div>
+<pre><code class=language-julia >@test &#40;s2, t2&#41; &#61;&#61;&#61; &#40;15.0, -3 &#43; 0im&#41;</code></pre></div> <div class=test_ok ><div class=title >☑ Pass</div></div></div></p>
+<p>To understand the computation of <code>@floop</code> with <code>@reduce&#40;accumulator &#61;
+initial_value op input&#41;</code> syntax, you can get a rough idea by just ignoring <code>@reduce&#40;</code> and corresponding <code>,</code>s and <code>&#41;</code>.  More concretely:</p>
+<ol>
+<li><p>Extract expressions <code>accumulator &#61; initial_value</code> &#40;&quot;initializers&quot;&#41; from <code>accumulator &#61; initial_value op input</code> and put them in front of the <code>for</code> loop.</p>
+
+<li><p>Convert <code>accumulator &#61; initial_value op input</code> to inplace update <code>accumulator &#61; accumulator op input</code>.</p>
+
+<li><p>Strip off <code>@reduce</code>.</p>
+
+</ol>
+<p>So, the above example of <code>@floop</code> is equivalent to</p>
+<pre><code class=language-julia >let
+    s2 &#61; 0.0  # initializer
+    t2 &#61; 0im  # initializer
+    for &#40;x, y&#41; in zip&#40;1:3, 1:2:6&#41;
+        a &#61; x &#43; y
+        b &#61; x - y
+        s2 &#61; s2 &#43; a  # converted from &#96;s2 &#61; 0.0 &#43; a&#96; in &#96;@reduce&#96;
+        t2 &#61; t2 &#43; b  # converted from &#96;t2 &#61; 0im &#43; b&#96; in &#96;@reduce&#96;
+    end      # \
+    &#40;s2, t2&#41; #  &#96;- the first arguments are now same as the left hand sides
+end</code></pre>
+<p><pre><code class=plaintext >(15.0, -3 + 0im)</code></pre> <div class=test ><div class=test_code ><div class=title >🔬 Test Code</div>
+<pre><code class=language-julia >@test &#40;s3, t3&#41; &#61;&#61;&#61; &#40;s2, t2&#41;</code></pre></div> <div class=test_ok ><div class=title >☑ Pass</div></div></div></p>
+<p>The short-hand version <code>@reduce&#40;s &#43;&#61; a, t &#43;&#61; b&#41;</code> is implemented by using the first element of the input collection as the initial value.</p>
+<p>This transformation is used for generating the base case that is executed in a single <code>Task</code>.  Multiple results from tasks are combined by the operators and functions specified by <code>@reduce</code>.  More explicitly, <code>&#40;s2_right, t2_right&#41;</code> is combined into <code>&#40;s2_left,
+t2_left&#41;</code> by</p>
+<pre><code class=language-julia >s2_left &#61; s2_left &#43; s2_right
+t2_left &#61; t2_left &#43; t2_right</code></pre>
+<p><a id=no-locks  class=anchor ></a> <div class=warn ><div class=title >⚠ Warning</div>
+<div class=content ><p><strong>Don&#39;t use locks or atomics&#33;</strong> <small>(unless you know what you are doing)</small></p>
+<p>In particular, do <em>not</em> write</p>
+<pre><code class=language-julia >acc &#61; Threads.Atomic&#123;Int&#125;&#40;0&#41;
+Threads.@thread fors x in xs
+    Threads.atomic_add&#33;&#40;acc, x &#43; 1&#41;
+end</code></pre>
+<p>Locks and atomics help you write correct <a href="https://blog.golang.org/waza-talk"><em>concurrent</em></a> programs when used appropriately.  However, they do so by <em>limiting</em> parallel execution.  Using data parallel pattern is the easiest way to get high performance.</p></div></div></p>
+<h3 id=parallel_findminfindmax_with_reduce_do ><a href="#parallel_findminfindmax_with_reduce_do" class=header-anchor >Parallel <code>findmin</code>/<code>findmax</code> with <code>@reduce&#40;&#41; do</code></a></h3>
+<p><code>@reduce&#40;&#41; do</code> syntax is the most flexible way in FLoops.jl for expressing custom reductions.  It is very useful when one variable can influence other variable&#40;s&#41; in reduction &#40;e.g., index and value in the example below&#41;.  Note also that <code>@reduce</code> can be used multiple times in the loop body.  Here is a way to compute <code>findmin</code> and <code>findmax</code> in parallel:</p>
+<pre><code class=language-julia >@floop for &#40;i, x&#41; in pairs&#40;&#91;0, 1, 3, 2&#93;&#41;
+    @reduce&#40;&#41; do &#40;imin &#61; -1; i&#41;, &#40;xmin &#61; Inf; x&#41;
+        if xmin &gt; x
+            xmin &#61; x
+            imin &#61; i
+        end
+    end
+    @reduce&#40;&#41; do &#40;imax &#61; -1; i&#41;, &#40;xmax &#61; -Inf; x&#41;
+        if xmax &lt; x
+            xmax &#61; x
+            imax &#61; i
+        end
+    end
+end
+
+@show imin xmin imax xmax</code></pre>
+<p><pre><code class=plaintext >imin = 1
+xmin = 0
+imax = 3
+xmax = 3
+</code></pre> <div class=test ><div class=test_code ><div class=title >🔬 Test Code</div>
+<pre><code class=language-julia >@test &#40;imin, xmin, imax, xmax&#41; &#61;&#61; &#40;1, 0, 3, 3&#41;</code></pre></div> <div class=test_ok ><div class=title >☑ Pass</div></div></div></p>
+<p>We can understand the computation of <code>@floop</code> roughly by ignoring the lines with <code>@reduce&#40;&#41; do</code> and corresponding <code>end</code>.  More concretely:</p>
+<ol>
+<li><p>Extract expressions <code>accumulator &#61; initial_value</code> &#40;&quot;initializers&quot;&#41; from <code>&#40;accumulator &#61; initial_value; input&#41;</code> or <code>&#40;accumulator; input&#41;</code> and put them in front of the <code>for</code> loop.</p>
+
+<li><p>Remove <code>@reduce&#40;&#41; do ...</code> and corresponding <code>end</code>.</p>
+
+</ol>
+<pre><code class=language-julia >let
+    imin2 &#61; -1    # -&#43;
+    xmin2 &#61; Inf   #  | initializers
+    imax2 &#61; -1    #  |
+    xmax2 &#61; -Inf  # -&#43;
+
+    for &#40;i, x&#41; in pairs&#40;&#91;0, 1, 3, 2&#93;&#41;
+        if xmin2 &gt; x   # -&#43;
+            xmin2 &#61; x  #  | do block bodies
+            imin2 &#61; i  #  |
+        end            #  |
+        if xmax2 &lt; x   #  |
+            xmax2 &#61; x  #  |
+            imax2 &#61; i  #  |
+        end            # -&#43;
+    end
+
+    @show imin2 xmin2 imax2 xmax2
+end</code></pre>
+<p><pre><code class=plaintext >imin2 = 1
+xmin2 = 0
+imax2 = 3
+xmax2 = 3
+</code></pre> <div class=test ><div class=test_code ><div class=title >🔬 Test Code</div>
+<pre><code class=language-julia >@test &#40;imin2, xmin2, imax2, xmax2&#41; &#61;&#61; &#40;1, 0, 3, 3&#41;</code></pre></div> <div class=test_ok ><div class=title >☑ Pass</div></div></div></p>
+<p>The above computation is used for each partition of the input collection and combined by the reducing function defined by <code>@reduce&#40;&#41;
+do</code> block.  That is to say, <code>&#40;imin2_right, xmin2_right, imax2_right,
+xmax2_right&#41;</code> is combined into <code>&#40;imin2_left, xmin2_left, imax2_left,
+xmax2_left&#41;</code> by</p>
+<pre><code class=language-julia >if xmin_left &gt; xmin_right
+    xmin_left &#61; xmin_right
+    imin_left &#61; imin_right
+end
+if xmax_left &lt; xmax_right
+    xmax_left &#61; xmax_right
+    imax_left &#61; imax_right
+end</code></pre>
+<p><strong>Remark</strong>: Observe that <code>x</code> and <code>i</code> of the first <code>@reduce&#40;&#41; do</code> block are replaced with <code>xmin_right</code> and <code>imin_right</code> while <code>x</code> and <code>i</code> of the second <code>@reduce&#40;&#41; do</code> block are replaced with <code>xmax_right</code> and <code>imax_right</code>.  This is why we used two <code>@reduce&#40;&#41; do</code> blocks; we need to &quot;pair&quot; <code>x</code>/<code>i</code> with <code>xmin</code>/<code>imin</code> or with <code>xmax</code>/<code>imax</code> depending on which <code>if</code> block we are in.</p>
+<h3 id=parallel_findminfindmax_with_foldsreduce_tedious ><a href="#parallel_findminfindmax_with_foldsreduce_tedious" class=header-anchor >Parallel <code>findmin</code>/<code>findmax</code> with <code>Folds.reduce</code> &#40;tedious&#33;&#41;</a></h3>
+<p>Note that it is not necessary to use <code>@floop</code> for writing a custom reduction.  For example, you can write an equivalent code with <code>Folds.reduce</code>:</p>
+<pre><code class=language-julia >&#40;imin3, xmin3, imax3, xmax3&#41; &#61; Folds.reduce&#40;
+    &#40;&#40;i, x, i, x&#41; for &#40;i, x&#41; in pairs&#40;&#91;0, 1, 3, 2&#93;&#41;&#41;;
+    init &#61; &#40;-1, Inf, -1, -Inf&#41;
+&#41; do &#40;imin, xmin, imax, xmax&#41;, &#40;i1, x1, i2, x2&#41;
+    if xmin &gt; x1
+        xmin &#61; x1
+        imin &#61; i1
+    end
+    if xmax &lt; x2
+        xmax &#61; x2
+        imax &#61; i2
+    end
+    return &#40;imin, xmin, imax, xmax&#41;
+end
+
+@assert &#40;imin3, xmin3, imax3, xmax3&#41; &#61;&#61; &#40;imin, xmin, imax, xmax&#41;</code></pre>
+<p> <div class=test ><div class=test_code ><div class=title >🔬 Test Code</div>
+<pre><code class=language-julia >@test &#40;imin3, xmin3, imax3, xmax3&#41; &#61;&#61; &#40;imin, xmin, imax, xmax&#41;</code></pre></div> <div class=test_ok ><div class=title >☑ Pass</div></div></div></p>
+<p>However, as you can see, it is much more verbose and error-prone &#40;e.g., the initial values and the variables are declared in different place&#41;.</p>
+<h3 id=histogram_with_reduce ><a href="#histogram_with_reduce" class=header-anchor >Histogram with <code>reduce</code></a></h3>
+<p><code>mapreduce</code> and <code>reduce</code> are useful when combining pre-existing operations.  For example, we can easily implement histogram by combining <code>mapreduce</code>, <code>Dict</code>, and <a href="https://docs.julialang.org/en/v1/base/collections/#Base.mergewith&#33;"><code>mergewith&#33;</code></a>:</p>
+<pre><code class=language-julia >str &#61; &quot;dbkgbjkahbidcbcfhfdeedhkggdigfecefjiakccjhghjcgefd&quot;
+f1 &#61; mapreduce&#40;x -&gt; Dict&#40;x &#61;&gt; 1&#41;, mergewith&#33;&#40;&#43;&#41;, str&#41;</code></pre>
+<pre><code class=plaintext >Dict{Char, Int64} with 11 entries:
+  'f' => 5
+  'd' => 6
+  'e' => 5
+  'j' => 4
+  'h' => 5
+  'i' => 3
+  'k' => 4
+  'a' => 2
+  'c' => 6
+  'g' => 6
+  'b' => 4</code></pre>
+<p>Note that this code has a performance problem: <code>Dict&#40;x &#61;&gt; 1&#41;</code> allocates an object for each iteration.  This is bad in particular in threaded Julia code because it frequently invokes garbage collection.  To avoid this situation, we can replace <code>Dict</code> with <a href="https://github.com/JuliaFolds/MicroCollections.jl"><code>MicroCollections.SingletonDict</code></a> which does not allocate the dictionary in the heap. <code>SingletonDict</code> can be &quot;upgraded&quot; to a <code>Dict</code> by calling <a href="https://juliafolds.github.io/BangBang.jl/dev/#BangBang.mergewith&#33;&#33;"><code>BangBang.mergewith&#33;&#33;</code></a>. It will then create a mutable object for each task to mutate.  We can then compose an efficient parallel histogram operation:</p>
+<pre><code class=language-julia >using BangBang: mergewith&#33;&#33;
+using MicroCollections: SingletonDict
+
+f2 &#61; Folds.mapreduce&#40;x -&gt; SingletonDict&#40;x &#61;&gt; 1&#41;, mergewith&#33;&#33;&#40;&#43;&#41;, str&#41;
+@assert f1 &#61;&#61; f2</code></pre>
+<p> <div class=test ><div class=test_code ><div class=title >🔬 Test Code</div>
+<pre><code class=language-julia >@test f1 &#61;&#61; f2</code></pre></div> <div class=test_ok ><div class=title >☑ Pass</div></div></div></p>
+<p>&#40;For more information, see Transducers.jl&#39;s <a href="https://juliafolds.github.io/Transducers.jl/dev/tutorials/tutorial_parallel/#Example:-ad-hoc-histogram">ad-hoc histogram tutorial</a>.&#41;</p>
+<h3 id=practical_example_histogram_of_stopping_time_of_collatz_function ><a href="#practical_example_histogram_of_stopping_time_of_collatz_function" class=header-anchor >Practical example: Histogram of stopping time of Collatz function</a></h3>
+<p>Let&#39;s compute the histogram of <code>collatz_stopping_time</code> over some range of initial values.  Unlike the histogram example above, we know that the stopping time is a positive integer.  So, it makes sense to use an array as the data structure that maps a bin &#40;index&#41; to a count.  There is no pre-defined reducing function like <code>mergewith&#33;</code> we can use. Fortunately, it is easy to write it using <code>@reduce&#40;&#41; do</code> syntax in <code>@floop</code>:</p>
+<pre><code class=language-julia >using FLoops
+using MicroCollections: SingletonDict
+
+maxkey&#40;xs::AbstractVector&#41; &#61; lastindex&#40;xs&#41;
+maxkey&#40;xs::SingletonDict&#41; &#61; first&#40;keys&#40;xs&#41;&#41;
+
+function collatz_histogram&#40;xs, executor &#61; ThreadedEx&#40;&#41;&#41;
+    @floop executor for x in xs
+        n &#61; collatz_stopping_time&#40;x&#41;
+        n &gt; 0 || continue
+        obs &#61; SingletonDict&#40;n &#61;&gt; 1&#41;
+        @reduce&#40;&#41; do &#40;hist &#61; Int&#91;&#93;; obs&#41;
+            l &#61; length&#40;hist&#41;
+            m &#61; maxkey&#40;obs&#41;  # obs is a Vector or SingletonDict
+            if l &lt; m
+                # Stretch &#96;hist&#96; so that the merged result fits in it.
+                resize&#33;&#40;hist, m&#41;
+                fill&#33;&#40;view&#40;hist, l&#43;1:m&#41;, 0&#41;
+            end
+            # Merge &#96;obs&#96; into &#96;hist&#96;:
+            for &#40;k, v&#41; in pairs&#40;obs&#41;
+                @inbounds hist&#91;k&#93; &#43;&#61; v
+            end
+        end
+    end
+    return hist
+end</code></pre>
+
+<p>As we discussed above, <code>@reduce&#40;&#41; do</code> blocks are used in two contexts; for the sequential base case and for combining the accumulated results from two base cases.  Thus, for combining <code>hist_left</code> and <code>hist_right</code>, we need to substitute <code>hist_right</code> to <code>obs</code>.  This is why we need to handle the cases where <code>obs</code> is a <code>SingletonDict</code> and a <code>Vector</code>.  Thanks to multiple dispatch, it is very easy to absorb the difference in the two containers.  We can just use what <code>Base</code> defines for <code>pairs</code> and only need to define <code>maxkey</code> for absorbing the remaining difference.</p>
+<div class=note ><div class=title >💡 Note</div>
+<div class=content >When writing <code>@reduce&#40;&#41; do &#40;L₁ &#61; I₁; R₁&#41;, &#40;L₂ &#61; I₂; R₂&#41;, ..., &#40;Lₙ &#61;
+Iₙ; Rₙ&#41;</code>, make sure that the <code>do</code> block body can handle arbitrary possible value of <code>Lᵢ</code> substituted to <code>Rᵢ</code> and not just <code>Rᵢ</code>s that are calculated directly in the <code>for</code> loop body.</div></div>
+<p>Example usage:</p>
+<pre><code class=language-julia >using Plots
+plt &#61; plot&#40;
+    collatz_histogram&#40;1:1_000_000&#41;,
+    xlabel &#61; &quot;Stopping time&quot;,
+    ylabel &#61; &quot;Counts&quot;,
+    label &#61; &quot;&quot;,
+    size &#61; &#40;450, 300&#41;,
+&#41;</code></pre>
+<img src="/data-parallelism/previews/PR38/assets/tutorials/quick-introduction/code/output/plot_hist_collatz_stopping_time.png" alt="">
+<p>We use <code>@floop executor for ...</code> syntax so that it is easy to switch between different kind of execution mechanisms; i.e., sequential, threaded, and distributed execution:</p>
+<pre><code class=language-julia >hist1 &#61; collatz_histogram&#40;1:1_000_000, SequentialEx&#40;&#41;&#41;
+hist2 &#61; collatz_histogram&#40;1:1_000_000, ThreadedEx&#40;&#41;&#41;
+hist3 &#61; collatz_histogram&#40;1:1_000_000, DistributedEx&#40;&#41;&#41;
+@assert hist1 &#61;&#61; hist2 &#61;&#61; hist3</code></pre>
+
+<div class=test ><div class=test_code ><div class=title >🔬 Test Code</div>
+<pre><code class=language-julia >@test hist1 &#61;&#61; hist2 &#61;&#61; hist3</code></pre></div> <div class=test_ok ><div class=title >☑ Pass</div></div></div>
+<p>For example, we can easily compare the performance of sequential and threaded execution:</p>
+<pre><code class=language-julia-repl >julia&gt; @btime collatz_histogram&#40;1:1_000_000, SequentialEx&#40;&#41;&#41;;
+  220.022 ms &#40;9 allocations: 13.81 KiB&#41;
+
+julia&gt; @btime collatz_histogram&#40;1:1_000_000, ThreadedEx&#40;&#41;&#41;;
+  58.271 ms &#40;155 allocations: 60.81 KiB&#41;</code></pre>
+<h3 id=quick_notes_on_threads_and_distributed ><a href="#quick_notes_on_threads_and_distributed" class=header-anchor >Quick notes on <code>@threads</code> and <code>@distributed</code></a></h3>
+<p>Julia itself has <a href="https://docs.julialang.org/en/v1/base/multi-threading/#Base.Threads.@threads"><code>Threads.@threads</code></a> macro for threaded <code>for</code> loop and <a href="https://docs.julialang.org/en/v1/stdlib/Distributed/#Distributed.@distributed"><code>@distributed</code></a> macro for distributed <code>for</code> loop.  They are adequate for simple use cases but come with some limitations.  For example, <code>@threads</code> does not have built-in reducing function support.  Although <code>@distributed</code> macro has reducing function support, it is limited to pre-defined functions and it is tedious to handle multiple variables.  Both of these macros only have simple static scheduler and lacks an option like <code>basesize</code> supported by FLoops.jl and Folds.jl to tune load balancing.  Furthermore, the code written with <code>@threads</code> cannot be reused for <code>@distributed</code> and vice versa.</p>
+<h2 id=next_steps ><a href="#next_steps" class=header-anchor >Next steps</a></h2>
+<p>Hopefully, this tutorial covers a bare minimum for you to start writing data-parallel programs and the documentations of <a href="https://github.com/JuliaFolds/FLoops.jl">FLoops.jl</a> and <a href="https://github.com/JuliaFolds/Folds.jl">Folds.jl</a> are now a bit more accessible.  These two libraries are based on the protocol designed for <a href="https://github.com/JuliaFolds/Transducers.jl">Transducers.jl</a> which also contains various tools for data parallelism.</p>
+<p>Transducers.jl&#39;s <a href="https://juliafolds.github.io/Transducers.jl/dev/tutorials/tutorial_parallel/">parallel processing tutorial</a> covers a similar topic with explanations for more low-level details. <a href="https://juliafolds.github.io/Transducers.jl/dev/tutorials/words/">Parallel word count</a> tutorial based on Guy L. Steele Jr.&#39;s <a href="https://vimeo.com/6624203">2009 ICFP talk</a> is more advanced but I find it a very good example to follow for understanding what is possible with a clever design of the reducing function.</p>
+<p>Note that ideas presented in this tutorial are very general and should be applicable also when using <a href="../../explanation/libraries/">other libraries</a>.  For example, the idea of custom reduction is useful in GPU computing when using <code>mapreduce</code> on <a href="https://juliagpu.gitlab.io/CUDA.jl/usage/array/"><code>CuArray</code></a>.</p>
+<p>See also:</p>
+<ul>
+<li><p><a href="../mutations/">Efficient and safe approaches to mutation in data parallelism</a></p>
+
+</ul>
+<div style="float: right">
+  <small>
+  <a href="?test=show" id=show-test-result >#show test results</a>
+  </small>
+</div>
+<div class=page-foot >
+  <div class=copyright >
+    <a rel=license  href="http://creativecommons.org/licenses/by-sa/4.0/"><img alt="Creative Commons License" style="border-width:0" src="https://i.creativecommons.org/l/by-sa/4.0/88x31.png" /></a><br />This work is licensed under a <a rel=license  href="http://creativecommons.org/licenses/by-sa/4.0/">Creative Commons Attribution-ShareAlike 4.0 International License</a>.
+  </div>
+  <div class=copyright >
+    &copy; Takafumi Arakaki. Last modified: June 10, 2021. Website built with <a href="https://github.com/tlienart/Franklin.jl">Franklin.jl</a> and the <a href="https://julialang.org">Julia programming language</a>.
+  </div>
+</div>
+</div>
+    
+    
+        <script src="/data-parallelism/previews/PR38/libs/highlight/highlight.pack.js"></script>
+<script>hljs.initHighlightingOnLoad();hljs.configure({tabReplace: '    '});</script>
+
+    
+    <script>
+      (function() {
+        if (window.location.search.includes("?test=show")){
+          var list = document.getElementsByClassName("test");
+          for (let item of list) {
+            item.style.display = "block";
+          };
+        }
+      })()
+    </script>
