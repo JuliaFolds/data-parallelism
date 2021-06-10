@@ -398,4 +398,6 @@ parallelism.
 * [JuliaActors/Actors.jl](https://github.com/JuliaActors/Actors.jl)
   (Concurrent computing in Julia based on the Actor Model)
   and other packages in <https://github.com/JuliaActors/>
-* <https://github.com/NHDaly/CspExamples.jl>
+* Julia implementations for the Example problems in Hoare's 1978 paper,
+  "Communicating Sequential Processes" by Nathan Daly:
+  <https://github.com/NHDaly/CspExamples.jl>
