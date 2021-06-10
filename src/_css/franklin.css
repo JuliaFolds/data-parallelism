@@ -203,19 +203,7 @@ html {
     KATEX
 ================================================================== */
 
-body { counter-reset: eqnum; }
-
-.katex { font-size: 1em !important; }
-
-.katex-display .katex {
-    display: inline-block; } /* overwrite katex settings */
-
-.katex-display::after {
-    counter-increment: eqnum;
-    content: "(" counter(eqnum) ")";
-    position: relative;
-    float: right;
-    padding-right: 5px; }
+/* Franklin-specify setups are removed. */
 
 /* ==================================================================
     CODE & HIGHLIGHT.JS
