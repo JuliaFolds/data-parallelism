@@ -12,6 +12,7 @@ let root = @__DIR__
         "tutorials" => [
             "quick-introduction.md",
             "mutations.md",
+            "concurrency-patterns.md",
         ],
     )
     external = Dict(

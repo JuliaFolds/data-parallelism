@@ -1,6 +1,7 @@
 * Tutorials
   * [A quick introduction to data parallelism in Julia](tutorials/quick-introduction/)
   * [Efficient and safe approaches to mutation in data parallelism](tutorials/mutations/)
+  * [Concurrency patterns for controlled parallelisms](tutorials/concurrency-patterns/)
   * 🔗 [Transducers.jl / Parallel processing tutorial](https://juliafolds.github.io/Transducers.jl/stable/tutorials/tutorial_parallel/)
   * 🔗 [Transducers.jl / Splitting a string into words and counting them in parallel](https://juliafolds.github.io/Transducers.jl/stable/tutorials/words/)
   * 🔗 [FLoops.jl / Parallel loops](https://juliafolds.github.io/FLoops.jl/stable/tutorials/parallel/)
