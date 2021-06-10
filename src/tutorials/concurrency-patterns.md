@@ -398,3 +398,4 @@ parallelism.
 * [JuliaActors/Actors.jl](https://github.com/JuliaActors/Actors.jl)
   (Concurrent computing in Julia based on the Actor Model)
   and other packages in <https://github.com/JuliaActors/>
+* <https://github.com/NHDaly/CspExamples.jl>
