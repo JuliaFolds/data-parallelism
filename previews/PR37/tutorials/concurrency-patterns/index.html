@@ -1,0 +1,276 @@
+<!doctype html> <html lang=en > <meta charset=UTF-8 > <meta name=viewport  content="width=device-width, initial-scale=1"> <link rel=stylesheet  href="/data-parallelism/previews/PR37/libs/highlight/github.min.css"> <link rel=stylesheet  href="/data-parallelism/previews/PR37/css/franklin.css"> <link rel=stylesheet  href="/data-parallelism/previews/PR37/css/basic.css"> <link rel=icon  href="/data-parallelism/previews/PR37/assets/juliafolds-logo.ico"> <title>Concurrency patterns for controlled parallelisms</title> <header> <div class=blog-name ><a href="/data-parallelism/previews/PR37/">Data-parallel Julia</a></div> <nav> <!-- <ul> <li><a href="/data-parallelism/previews/PR37/">Home</a> <li><a href="/data-parallelism/previews/PR37/menu1/">Code blocks</a> <li><a href="/data-parallelism/previews/PR37/menu2/">More goodies</a> <li><a href="/data-parallelism/previews/PR37/menu3/">Tags</a> </ul> --> <a href="https://github.com/JuliaFolds/data-parallelism/blob/master/src/tutorials/concurrency-patterns.md"> <img class=github-edit-small  src="https://img.shields.io/badge/-Edit-green?logo=github&style=social"> <img class=github-edit-big  src="https://img.shields.io/badge/source-Suggest%20Edit-green?logo=github&style=social"> </a> <!-- <img src="/data-parallelism/previews/PR37/assets/hamburger.svg" id=menu-icon > --> </nav> </header> <div class=franklin-content ><h1 id=concurrency_patterns_for_controlled_parallelisms ><a href="#concurrency_patterns_for_controlled_parallelisms" class=header-anchor >Concurrency patterns for controlled parallelisms</a></h1> <div class=note ><div class=title >💡 Note</div> <div class=content >If you are new to parallel programming in Julia, have a look at other tutorials such as <a href="../quick-introduction/">A quick introduction to data parallelism in Julia</a> and <a href="../mutations/">Efficient and safe approaches to mutation in data parallelism</a>. This tutorial is an introduction to how to control the scheduling details of the parallel execution. But, the best approach is to <a href="https://www.infoq.com/presentations/Thinking-Parallel-Programming/"><em>not</em></a> think about such issues.</div></div> <p>High-level data parallelism is the best starting point for writing parallel programs. However, it is sometimes required to control the parallelism in your program so that, e.g., the usages of the bounded resources like memory can be managed. This is where it is necessary to deal with <a href="https://blog.golang.org/waza-talk"><em>concurrency</em></a>. Although there are a lot of concurrency primitives, <code>Channel</code> is the most versatile tool that Julia provides out-of-the-box. In this tutorial, we look at how to implement simple and useful patterns based on <code>Channel</code>. Some of these patterns are known as task-parallel <a href="https://en.wikipedia.org/wiki/Algorithmic_skeleton"><em>algorithmic skeletons</em></a> &#40;or <a href="https://link.springer.com/referenceworkentry/10.1007&#37;2F978-0-387-09766-4_24"><em>parallel skeletons</em></a>&#41;.</p> <div class=franklin-toc ><ol><li><a href="#worker_pool">Worker pool</a><ol><li><a href="#re-distribution_hacks">Re-distribution hacks</a></ol><li><a href="#task_farm">Task farm</a><li><a href="#pipeline">Pipeline</a><li><a href="#promise_request-response">Promise &#40;request-response&#41;</a><ol><li><a href="#improving_the_api">Improving the API</a><li><a href="#wrapping_single-thread_api">Wrapping single-thread API</a></ol><li><a href="#see_also">See also</a></ol></div> <h2 id=worker_pool ><a href="#worker_pool" class=header-anchor >Worker pool</a></h2> <p>Useful for:</p> <ul> <li><p>Limiting the number of concurrent/parallel tasks.</p> <li><p>Limiting the resource usage.</p> </ul> <p>Pattern:</p> <pre><code class=language-julia >using Base.Threads: @spawn
+
+function workerpool&#40;work&#33;, allocate, request; ntasks &#61; Threads.nthreads&#40;&#41;&#41;
+    @sync for _ in 1:ntasks
+        @spawn allocate&#40;&#41; do resource
+            for input in request
+                work&#33;&#40;input, resource&#41;
+            end
+        end
+    end
+end</code></pre> <pre><code class=language-plaintext >﻿                           x7 .-----&gt;  work&#33;&#40;x1, resource1&#41;
+                             /
+request                     /   x9
+&#91;..., x12, x11, x10&#93; ------&#43;--------&gt;  work&#33;&#40;x6, resource2&#41;
+                            \
+                             \
+                          x8  &#96;-----&gt;  work&#33;&#40;x4, resource3&#41;</code></pre> <p>Note that <code>request</code> must define <code>iterate</code> that can be invoked from multiple tasks concurrently. For example, a <code>Channel</code> can be used in this pattern. The <code>allocate</code> function passed as the second argument is used for allocating and releasing resources.</p> <p>Following example computes <code>mean&#40;rand&#40;UInt8, 2^15&#41;&#41;</code> using <code>/dev/urandom</code>:</p> <pre><code class=language-julia ># Prepare inputs to the worker pool
+results &#61; Vector&#123;Float64&#125;&#40;undef, 2^5&#41;
+works &#61; Channel&#123;typeof&#40;Ref&#40;results, 1&#41;&#41;&#125;&#40;Inf&#41;
+for i in eachindex&#40;results&#41;
+    put&#33;&#40;works, Ref&#40;results, i&#41;&#41;
+end
+close&#40;works&#41;
+
+let buffer_length &#61; 2^10
+
+    # &#96;allocate&#40;body&#41;&#96; function allocates the resource and pass it to &#96;body&#96;:
+    function allocate&#40;body&#41;
+        open&#40;&quot;/dev/urandom&quot;&#41; do file
+            buffer &#61; Vector&#123;UInt8&#125;&#40;undef, buffer_length&#41;
+            body&#40;&#40;file, buffer&#41;&#41;
+        end
+    end
+
+    # The first argument to &#96;workerpool&#96; is a function that takes a work and a
+    # resource:
+    workerpool&#40;allocate, works&#41; do ref, &#40;file, buffer&#41;
+        read&#33;&#40;file, buffer&#41;
+        ref&#91;&#93; &#61; sum&#40;buffer; init &#61; 0.0&#41;
+    end
+
+    sum&#40;results&#41; / &#40;length&#40;results&#41; * buffer_length&#41;
+end</code></pre> <pre><code class=plaintext >127.435546875</code></pre>
+<h3 id=re-distribution_hacks ><a href="#re-distribution_hacks" class=header-anchor >Re-distribution hacks</a></h3>
+<p>As of version 1.6, Julia&#39;s parallel task runtime does not migrate tasks across worker threads once a task is started. Thus, depending on when the worker pool is constructed, the above code many not distribute the tasks across worker threads. If there is no need to allocate the resource for each worker, the best solution is to use <a href="https://docs.julialang.org/en/v1/base/multi-threading/#Base.Threads.foreach"><code>Threads.foreach&#40;_,
+::Channel&#41;</code></a>. added in Julia 1.6, if you don&#39;t need to run <code>resource &#61; allocate&#40;&#41;</code> as above.</p>
+<p>If you need to allocate the resource, a simple workaround to this problem is to spawn a new task for each call to <code>work&#33;</code>. This is the strategy used in <code>Threads.foreach</code>.</p>
+<pre><code class=language-julia >function workerpool_redist&#40;work&#33;, allocate, request; kwargs...&#41;
+    workerpool&#40;allocate, request; kwargs...&#41; do input, resource
+        wait&#40;@spawn work&#33;&#40;input, resource&#41;&#41;
+    end
+end</code></pre>
+<p>Another &#40;less recommended&#41; approach is to let <code>@threads</code> distribute the tasks</p>
+<pre><code class=language-julia >@sync @threads for _ in 1:ntasks
+    allocate&#40;&#41; do resource
+        @async for input in request
+            work&#33;&#40;input, resource&#41;
+        end
+    end
+end</code></pre>
+<p>This approach is not recommended because &#40;1&#41; how <code>@threads for</code> schedules the tasks is an implementation detail and &#40;2&#41; use of <code>@async</code> impedes migration of the tasks across OS threads &#40;which is not implemented as of Julia 1.6 but is likely to be implemented in the future Julia versions&#41;.</p>
+<h2 id=task_farm ><a href="#task_farm" class=header-anchor >Task farm</a></h2>
+<p>Useful for:</p>
+<ul>
+<li><p>Limiting resources like worker pool.</p>
+
+<li><p>Passing outputs into downstream processing.</p>
+
+<li><p>Chaining computations with different resource requirements.</p>
+
+</ul>
+<p>Pattern:</p>
+<pre><code class=language-julia >ys &#61; Channel&#40;&#41; do ys
+    @sync for _ in 1:ntasks
+        @spawn for x in xs
+            put&#33;&#40;ys, f&#40;x&#41;&#41;
+        end
+    end
+end</code></pre>
+<pre><code class=language-plaintext >﻿                           x7 .------ f -------.  f&#40;x4&#41;
+                             /                  \
+                            /  x9         f&#40;x6&#41;  \
+&#91;..., x12, x11, x10&#93; ------&#43;--------- f ----------&#43;----------&gt; &#91;f&#40;x1&#41;, f&#40;x5&#41;, f&#40;x2&#41;, ...&#93;
+                            \                    /
+                             \                  /
+                          x8  &#96;------ f -------&#96;  f&#40;x3&#41;</code></pre>
+<p>This is an extension of the worker pool pattern. It is useful for limiting the number of concurrent/parallel tasks. However, as the diagram above indicates, it does not preserve the ordering of input &#40;hence <code>u</code> in <code>umap</code> for unordered&#41;:</p>
+<pre><code class=language-julia >umap&#40;f, xs; kwargs...&#41; &#61; umap&#40;f, Any, xs; kwargs...&#41;
+function umap&#40;f, TY::Type, xs::Channel; ntasks &#61; Threads.nthreads&#40;&#41;, buffersize &#61; ntasks&#41;
+    return Channel&#123;TY&#125;&#40;buffersize&#41; do ys
+        @sync for _ in 1:ntasks
+            @spawn for x in xs
+                put&#33;&#40;ys, f&#40;x&#41;&#41;
+            end
+        end
+    end
+end</code></pre>
+<p>Note that the input collection <code>xs</code> must support concurrent iteration.  To support arbitrary input collection, we can automatically wrap it in a fallback implementation:</p>
+<pre><code class=language-julia >function umap&#40;f, TY::Type, xs; kwargs...&#41;
+    ch &#61; Channel&#123;eltype&#40;xs&#41;&#125;&#40;&#41; do ch
+        for x in xs
+            put&#33;&#40;ch, x&#41;
+        end
+    end
+    return umap&#40;f, TY, ch; kwargs...&#41;
+end</code></pre>
+<p>This pattern is called the <em>task farm</em> algorithmic skeleton.</p>
+<p><code>umap</code> can be used like <code>Iterators.map</code> although the ordering is not preserved:</p>
+<pre><code class=language-julia >function slow_square&#40;x&#41;
+    sleep&#40;rand&#40;0.01:0.01:0.3&#41;&#41;
+    return x^2
+end
+
+collect&#40;umap&#40;slow_square, 1:10; ntasks &#61; 5&#41;&#41;</code></pre>
+<pre><code class=plaintext >10-element Vector{Any}:
+  25
+  36
+   9
+  16
+  64
+   1
+  81
+   4
+  49
+ 100</code></pre>
+<h2 id=pipeline ><a href="#pipeline" class=header-anchor >Pipeline</a></h2>
+<p>An interesting use-case is to call <code>umap</code> with <code>ntasks &#61; 1</code> but with a long chain of calls:</p>
+<pre><code class=language-julia >a &#61; umap&#40;f, xs; ntasks &#61; 1&#41;
+b &#61; umap&#40;g, a; ntasks &#61; 1&#41;
+c &#61; umap&#40;h, b; ntasks &#61; 1&#41;</code></pre>
+<pre><code class=language-plaintext >step    items in a     items in b     items in c
+------- -------------- -------------- ------------
+  1     a1 &#61; f&#40;x1&#41;
+  2     a2 &#61; f&#40;x2&#41;;    b1 &#61; g&#40;a1&#41;
+  3     a3 &#61; f&#40;x3&#41;;    b2 &#61; g&#40;a2&#41;;    c1 &#61; h&#40;b1&#41;
+  4     a4 &#61; f&#40;x4&#41;;    b3 &#61; g&#40;a3&#41;;    c2 &#61; h&#40;b2&#41;
+  5     a5 &#61; f&#40;x5&#41;;    b4 &#61; g&#40;a4&#41;;    c3 &#61; h&#40;b3&#41;
+  6     a6 &#61; f&#40;x5&#41;;    b5 &#61; g&#40;a4&#41;;    c4 &#61; h&#40;b4&#41;
+  7     a7 &#61; f&#40;x7&#41;;    b6 &#61; g&#40;a4&#41;;    c5 &#61; h&#40;b5&#41;
+  8     a8 &#61; f&#40;x7&#41;;    b7 &#61; g&#40;a5&#41;;    c6 &#61; h&#40;b6&#41;
+  9                    b8 &#61; g&#40;a8&#41;;    c7 &#61; h&#40;b7&#41;
+ 10                                   c8 &#61; h&#40;b7&#41;</code></pre>
+<p>If <code>ntask &#61; 1</code>, the ordering of the input is preserved in the output. It can be used to improve the performance as long as <code>buffersize &gt; 0</code> and the length of the input is long enough. In this case, different functions &#40;<code>f</code>, <code>g</code>, and <code>h</code> in the above example&#41; can be evaluated in parallel. This pattern is called the <em>pipeline</em> algorithmic skeleton.</p>
+<h2 id=promise_request-response ><a href="#promise_request-response" class=header-anchor >Promise &#40;request-response&#41;</a></h2>
+<p>Useful for:</p>
+<ul>
+<li><p>Limiting resources like worker pool.</p>
+
+<li><p>Associating input and output.</p>
+
+</ul>
+<p>The task farm pattern has an unfortunate restriction that it does not preserve the ordering of input. Can we make it work when we want to relate the input and output?  One approach is to combine <a href="https://en.wikipedia.org/wiki/Futures_and_promises">promise &#40;or future&#41;</a> with the worker pool pattern.</p>
+<p>Similar to the worker pool pattern, we still use a channel as the request queue &#40;<code>request</code>&#41; that the worker waits for the works. The key trick here is to send another channel &#40;<code>promise</code>&#41; over the request channel together with the input describing the work.  Once the worker finish the computation, it &quot;returns&quot; the result by putting it in the <code>promise</code> channel.</p>
+<pre><code class=language-julia >function raw_service&#40;f; ntasks &#61; Threads.nthreads&#40;&#41;&#41;
+    request &#61; Channel&#40;&#41; do request
+        @sync for _ in 1:ntasks
+            @spawn for &#40;x, promise&#41; in request
+                y &#61; f&#40;x&#41;
+                put&#33;&#40;promise, y&#41;
+            end
+        end
+    end
+    return request
+end
+
+function call&#40;request, x&#41;
+    promise &#61; Channel&#40;1&#41;
+    put&#33;&#40;request, &#40;x, promise&#41;&#41;
+    return take&#33;&#40;promise&#41;
+end
+
+adder &#61; raw_service&#40;&#41; do x
+    return x &#43; 1
+end
+try
+    @assert call&#40;adder, 0&#41; &#61;&#61; 1
+    @assert call&#40;adder, 1&#41; &#61;&#61; 2
+finally
+    close&#40;adder&#41;
+end</code></pre>
+<p>Several variants are possible:</p>
+<ul>
+<li><p>If the input and the output type of <code>f</code> is known &#40;say <code>X</code> and <code>Y</code>&#41; we can use <code>Channel&#123;Y&#125;</code> as the <code>promise</code> channel and <code>Channel&#123;Tuple&#123;X,Channel&#123;Y&#125;&#125;&#125;</code> as the <code>request</code> channel.</p>
+
+<li><p>If <code>f</code> needs some resources, it can be allocated once per worker.</p>
+
+</ul>
+<p>Another useful variant may be an asynchronous call API:</p>
+<pre><code class=language-julia >function async_call&#40;request, x&#41;
+    promise &#61; Channel&#40;1&#41;
+    put&#33;&#40;request, &#40;x, promise&#41;&#41;
+    return promise  # no take&#33;
+end</code></pre>
+<p>The caller can schedule the call and then retrieve the result &#40;using <code>take&#33;</code>&#41; at different locations in the code.  It is also useful for scheduling multiple concurrent &#40;and potentially parallel&#41; calls.  </p>
+<h3 id=improving_the_api ><a href="#improving_the_api" class=header-anchor >Improving the API</a></h3>
+<p>The above API using <code>raw_service</code> and <code>call</code> has a problem that the user must close the channel <code>adder</code> to cleanup the resources &#40;tasks&#41; deterministically and handle errors reliably.  It&#39;s better to wrap our API so that it can be used with the <code>do</code> block pattern &#40;c.f., <code>open&#40;f, path&#41;</code>&#41; instead of explicit <code>try</code>-<code>finally</code>:</p>
+<pre><code class=language-julia >function provide&#40;body, request&#41;
+    endpoint&#40;x&#41; &#61; call&#40;request, x&#41;
+    try
+        body&#40;endpoint&#41;
+    finally
+        close&#40;request&#41;
+    end
+end
+
+function define_service&#40;f; kwargs...&#41;
+    open_service&#40;body&#41; &#61; provide&#40;body, raw_service&#40;f; kwargs...&#41;&#41;
+    return open_service
+end</code></pre>
+<p>We can use this API in two steps: &#40;1&#41; define the serve and then &#40;2&#41; &quot;open&quot; it using another <code>do</code> block:</p>
+<pre><code class=language-julia >with_adder &#61; define_service&#40;&#41; do x
+    return x &#43; 1
+end
+with_adder&#40;&#41; do add
+    @assert add&#40;0&#41; &#61;&#61; 1
+    @assert add&#40;1&#41; &#61;&#61; 2
+end</code></pre>
+<h3 id=wrapping_single-thread_api ><a href="#wrapping_single-thread_api" class=header-anchor >Wrapping single-thread API</a></h3>
+<p>This pattern is useful also as an ad-hoc interface around an API that is not safe to call from arbitrary OS threads:</p>
+<pre><code class=language-julia >function define_single_thread_service&#40;f&#41;
+    function open_service&#40;body&#41;
+        request &#61; Channel&#40;&#41; do request
+            for &#40;x, promise&#41; in request
+                y &#61; f&#40;x&#41;
+                put&#33;&#40;promise, y&#41;
+            end
+        end
+        provide&#40;body, request&#41;
+    end
+    return open_service
+end
+
+with_adder &#61; define_single_thread_service&#40;&#41; do x
+    return x &#43; 1  # call a &quot;thread-unsafe&quot; API here
+end
+with_adder&#40;&#41; do add
+    @assert add&#40;0&#41; &#61;&#61; 1
+    @assert add&#40;1&#41; &#61;&#61; 2
+end</code></pre>
+<p>This function makes sure &#40;as of Julia 1.6&#41; that <code>f</code> is called on the OS thread that <code>with_adder&#40;body&#41;</code> is called while <code>add&#40;x&#41;</code> can be called in any tasks.</p>
+<p>Note that the call to the &quot;thread-unsafe&quot; function <code>f</code> becomes the bottleneck if you use <code>define_single_thread_service&#40;f&#41;</code> because every worker has to wait for the preceding calls of <code>f</code>. It may be a reasonable approach when the execution time of <code>f</code> is much smaller than the parallelized portion of your program. However, if it is not the case, it may be better to switch to process-based parallelism &#40;using Distributed.jl, Dagger.jl, etc.&#41; instead of threading-based parallelism.</p>
+<h2 id=see_also ><a href="#see_also" class=header-anchor >See also</a></h2>
+<ul>
+<li><p><a href="https://github.com/JuliaActors/Actors.jl">JuliaActors/Actors.jl</a> &#40;Concurrent computing in Julia based on the Actor Model&#41; and other packages in <a href="https://github.com/JuliaActors/">https://github.com/JuliaActors/</a></p>
+
+</ul>
+<div style="float: right">
+  <small>
+  <a href="?test=show" id=show-test-result >#show test results</a>
+  </small>
+</div>
+<div class=page-foot >
+  <div class=copyright >
+    <a rel=license  href="http://creativecommons.org/licenses/by-sa/4.0/"><img alt="Creative Commons License" style="border-width:0" src="https://i.creativecommons.org/l/by-sa/4.0/88x31.png" /></a><br />This work is licensed under a <a rel=license  href="http://creativecommons.org/licenses/by-sa/4.0/">Creative Commons Attribution-ShareAlike 4.0 International License</a>.
+  </div>
+  <div class=copyright >
+    &copy; Takafumi Arakaki. Last modified: June 10, 2021. Website built with <a href="https://github.com/tlienart/Franklin.jl">Franklin.jl</a> and the <a href="https://julialang.org">Julia programming language</a>.
+  </div>
+</div>
+</div>
+    
+    
+        <script src="/data-parallelism/previews/PR37/libs/highlight/highlight.pack.js"></script>
+<script>hljs.initHighlightingOnLoad();hljs.configure({tabReplace: '    '});</script>
+
+    
+    <script>
+      (function() {
+        if (window.location.search.includes("?test=show")){
+          var list = document.getElementsByClassName("test");
+          for (let item of list) {
+            item.style.display = "block";
+          };
+        }
+      })()
+    </script>
