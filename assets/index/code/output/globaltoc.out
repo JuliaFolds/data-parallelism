@@ -17,3 +17,4 @@
   * 🔗 [See JuliaFolds organization for more packages](https://github.com/JuliaFolds)
 * Explanation
   * [Libraries for parallelism in Julia](explanation/libraries/)
+  * [Parallel reductions using semidirect products](explanation/semidirect-products/)
