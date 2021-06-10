@@ -1,1 +1,0 @@
-collatz_stopping_time (generic function with 1 method)

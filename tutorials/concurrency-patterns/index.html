@@ -40,7 +40,7 @@ let buffer_length &#61; 2^10
     end
 
     sum&#40;results&#41; / &#40;length&#40;results&#41; * buffer_length&#41;
-end</code></pre> <pre><code class=plaintext >127.55941772460938</code></pre>
+end</code></pre> <pre><code class=plaintext >127.05038452148438</code></pre>
 <h3 id=re-distribution_hacks ><a href="#re-distribution_hacks" class=header-anchor >Re-distribution hacks</a></h3>
 <p>As of version 1.6, Julia&#39;s parallel task runtime does not migrate tasks across worker threads once a task is started. Thus, depending on when the worker pool is constructed, the above code many not distribute the tasks across worker threads. If there is no need to allocate the resource for each worker, the best solution is to use <a href="https://docs.julialang.org/en/v1/base/multi-threading/#Base.Threads.foreach"><code>Threads.foreach&#40;_,
 ::Channel&#41;</code></a>. added in Julia 1.6, if you don&#39;t need to run <code>resource &#61; allocate&#40;&#41;</code> as above.</p>
@@ -113,16 +113,16 @@ end
 
 collect&#40;umap&#40;slow_square, 1:10; ntasks &#61; 5&#41;&#41;</code></pre>
 <pre><code class=plaintext >10-element Vector{Any}:
-   9
-  36
   25
+  36
+   4
+  49
+  16
+   9
    1
   64
-  16
-   4
- 100
   81
-  49</code></pre>
+ 100</code></pre>
 <h2 id=pipeline ><a href="#pipeline" class=header-anchor >Pipeline</a></h2>
 <p>An interesting use-case is to call <code>umap</code> with <code>ntasks &#61; 1</code> but with a long chain of calls:</p>
 <pre><code class=language-julia >a &#61; umap&#40;f, xs; ntasks &#61; 1&#41;
@@ -242,6 +242,8 @@ end</code></pre>
 <h2 id=see_also ><a href="#see_also" class=header-anchor >See also</a></h2>
 <ul>
 <li><p><a href="https://github.com/JuliaActors/Actors.jl">JuliaActors/Actors.jl</a> &#40;Concurrent computing in Julia based on the Actor Model&#41; and other packages in <a href="https://github.com/JuliaActors/">https://github.com/JuliaActors/</a></p>
+
+<li><p>Julia implementations for the Example problems in Hoare&#39;s 1978 paper, &quot;Communicating Sequential Processes&quot; by Nathan Daly: <a href="https://github.com/NHDaly/CspExamples.jl">https://github.com/NHDaly/CspExamples.jl</a></p>
 
 </ul>
 <div style="float: right">
