@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes" ?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+
+<url>
+    <loc>https://juliafolds.github.io/data-parallelism/previews/PR40/tutorials/quick-introduction/index.html</loc>
+    <lastmod>2022-01-20</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+</url>
+<url>
+    <loc>https://juliafolds.github.io/data-parallelism/previews/PR40/index.html</loc>
+    <lastmod>2022-01-20</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+</url>
+<url>
+    <loc>https://juliafolds.github.io/data-parallelism/previews/PR40/howto/high-level-api/index.html</loc>
+    <lastmod>2022-01-20</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+</url>
+<url>
+    <loc>https://juliafolds.github.io/data-parallelism/previews/PR40/explanation/libraries/index.html</loc>
+    <lastmod>2022-01-20</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+</url>
+<url>
+    <loc>https://juliafolds.github.io/data-parallelism/previews/PR40/404/index.html</loc>
+    <lastmod>2022-01-20</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+</url>
+<url>
+    <loc>https://juliafolds.github.io/data-parallelism/previews/PR40/tutorials/concurrency-patterns/index.html</loc>
+    <lastmod>2022-01-20</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+</url>
+<url>
+    <loc>https://juliafolds.github.io/data-parallelism/previews/PR40/howto/faq/index.html</loc>
+    <lastmod>2022-01-20</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+</url>
+<url>
+    <loc>https://juliafolds.github.io/data-parallelism/previews/PR40/explanation/semidirect-products/index.html</loc>
+    <lastmod>2022-01-20</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+</url>
+<url>
+    <loc>https://juliafolds.github.io/data-parallelism/previews/PR40/tutorials/mutations/index.html</loc>
+    <lastmod>2022-01-20</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+</url>
+<url>
+    <loc>https://juliafolds.github.io/data-parallelism/previews/PR40/tutorials/index/</loc>
+    <lastmod>2022-01-20</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+</url>
+<url>
+    <loc>https://juliafolds.github.io/data-parallelism/previews/PR40/howto/index/</loc>
+    <lastmod>2022-01-20</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+</url>
+<url>
+    <loc>https://juliafolds.github.io/data-parallelism/previews/PR40/reference/index/</loc>
+    <lastmod>2022-01-20</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+</url>
+<url>
+    <loc>https://juliafolds.github.io/data-parallelism/previews/PR40/explanation/index/</loc>
+    <lastmod>2022-01-20</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+</url>
+</urlset>

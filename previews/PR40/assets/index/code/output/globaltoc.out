@@ -1,0 +1,21 @@
+* Tutorials
+  * [A quick introduction to data parallelism in Julia](tutorials/quick-introduction/)
+  * [Efficient and safe approaches to mutation in data parallelism](tutorials/mutations/)
+  * [Concurrency patterns for controlled parallelisms](tutorials/concurrency-patterns/)
+  * 🔗 [Transducers.jl / Parallel processing tutorial](https://juliafolds.github.io/Transducers.jl/stable/tutorials/tutorial_parallel/)
+  * 🔗 [Transducers.jl / Splitting a string into words and counting them in parallel](https://juliafolds.github.io/Transducers.jl/stable/tutorials/words/)
+  * 🔗 [FLoops.jl / Parallel loops](https://juliafolds.github.io/FLoops.jl/stable/tutorials/parallel/)
+  * 🔗 [FoldsCUDA.jl / Examples](https://juliafolds.github.io/FoldsCUDA.jl/dev/)
+* How-to guides
+  * [Frequently asked questions](howto/faq/)
+  * [How to find data-parallel algorithms](howto/high-level-api/)
+  * 🔗 [FLoops.jl / How to write X in parallel](https://juliafolds.github.io/FLoops.jl/stable/howto/parallel/)
+* References
+  * 🔗 [FLoops.jl documentation](https://juliafolds.github.io/FLoops.jl/stable/)
+  * 🔗 [Folds.jl documentation](https://juliafolds.github.io/Folds.jl/stable/)
+  * 🔗 [ThreadsX.jl documentation](https://tkf.github.io/ThreadsX.jl/dev/)
+  * 🔗 [Transducers.jl documentation](https://juliafolds.github.io/Transducers.jl/stable/)
+  * 🔗 [See JuliaFolds organization for more packages](https://github.com/JuliaFolds)
+* Explanation
+  * [Libraries for parallelism in Julia](explanation/libraries/)
+  * [Parallel reductions using semidirect products](explanation/semidirect-products/)
