@@ -1,0 +1,4 @@
+Sitemap: https://juliafolds.github.io/data-parallelism/previews/PR41/sitemap.xml
+
+User-agent: *
+Disallow:
